@@ -1,0 +1,17 @@
+POST  http://localhost:3000/users
+content-type: application/json
+
+{
+    "email": "wachiraamos@gmail.com",
+    "password": "amo11063",
+    "username": "Wachira Amos"
+}
+
+###
+GET http://localhost:3000/users/1
+content-type: application/json
+
+
+###
+GET http://localhost:3000/users
+content-type: application/json
