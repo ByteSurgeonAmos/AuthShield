@@ -2,10 +2,20 @@ POST  http://localhost:3000/users
 content-type: application/json
 
 {
-    "email": "wachiraamos@gmail.com",
+    "email": "wachiraamos402@gmail.com",
     "password": "amo11063",
-    "username": "Wachira Amos"
+    "username": "Amos"
 }
+
+###
+POST  http://localhost:3000/users/login
+content-type: application/json
+
+{
+  "email": "wachiraamos@gmail.com",
+  "password": "amo11063"
+}
+
 
 ###
 GET http://localhost:3000/users/1

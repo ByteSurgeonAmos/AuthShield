@@ -28,11 +28,13 @@ export class User {
   @Column({ default: () => 'CURRENT_TIMESTAMP' })
   lastLogin: Date;
 
-  @Column({ default: () => '' })
+  @Column({ default: () => 'CURRENT_TIMESTAMP' })
   lastFailedLogin: Date;
 
-  @Column({ default: () => '' })
-  passwordResetToken: Date;
+  @Column({ nullable: true })
+  passwordResetToken: string;
+  @Column({ nullable: true })
+  verificationToken: string;
 
   @Column({ default: false })
   passwordResetTokenExpired: boolean;
