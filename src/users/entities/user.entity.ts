@@ -33,8 +33,12 @@ export class User {
 
   @Column({ nullable: true })
   passwordResetToken: string;
+
   @Column({ nullable: true })
   verificationToken: string;
+
+  @Column({ nullable: true })
+  verificationTokenExpires: Date;
 
   @Column({ default: false })
   passwordResetTokenExpired: boolean;

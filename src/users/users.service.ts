@@ -21,30 +21,6 @@ export class UsersService {
     @InjectRepository(User) private userRepository: Repository<User>,
     private jwtService: JwtService,
   ) {}
-  async create(createUserDto: CreateUserDto) {
-    const userExists = await this.userRepository.findOne({
-      where: { email: createUserDto.email },
-    });
-    if (userExists) {
-      throw new BadRequestException('Email already exists');
-    }
-    const userNameExists = await this.userRepository.findOne({
-      where: { username: createUserDto.username },
-    });
-    if (userNameExists) {
-      throw new BadRequestException('Username already exists');
-    }
-    const hashedPassword = await bcrypt.hash(createUserDto.password, 10);
-    const verificationToken = randomBytes(32).toString('hex');
-
-    const user = this.userRepository.create({
-      ...createUserDto,
-      password: hashedPassword,
-      verificationToken,
-    });
-    await this.sendVerificationEmail(user.email, user.verificationToken);
-    return await this.userRepository.save(user);
-  }
 
   async findAll(): Promise<User[]> {
     const users = await this.userRepository.find();
@@ -117,12 +93,12 @@ export class UsersService {
   }
   async sendVerificationEmail(email: string, token: string) {
     const transporter = nodemailer.createTransport({
-      host: 'smtp.dreamhost.com',
+      host: 'smtp.gmail.com',
       secure: true,
       port: 465,
       auth: {
-        user: 'contact@blunovatech.com',
-        pass: 'Bl2024!@#',
+        user: 'amoswachira16@gmail.com',
+        pass: 'gyzm hjdf qjli hlve',
       },
     });
 
@@ -145,10 +121,93 @@ export class UsersService {
       attachments: [
         {
           filename: 'logo.svg',
-          path: './public/logo.svg',
+          path: './logo.svg',
           cid: 'logo',
         },
       ],
     });
+  }
+
+  async create(createUserDto: CreateUserDto) {
+    const userExists = await this.userRepository.findOne({
+      where: { email: createUserDto.email },
+    });
+    if (userExists) {
+      throw new BadRequestException('Email already exists');
+    }
+
+    const userNameExists = await this.userRepository.findOne({
+      where: { username: createUserDto.username },
+    });
+    if (userNameExists) {
+      throw new BadRequestException('Username already exists');
+    }
+
+    const hashedPassword = await bcrypt.hash(createUserDto.password, 10);
+    const verificationToken = randomBytes(32).toString('hex');
+    const tokenExpiry = new Date();
+    tokenExpiry.setHours(tokenExpiry.getHours() + 24);
+
+    const user = this.userRepository.create({
+      ...createUserDto,
+      password: hashedPassword,
+      verificationToken,
+      verificationTokenExpires: tokenExpiry,
+    });
+
+    await this.sendVerificationEmail(user.email, user.verificationToken);
+    return await this.userRepository.save(user);
+  }
+
+  async resendVerificationToken(email: string): Promise<{ message: string }> {
+    const user = await this.userRepository.findOne({ where: { email } });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    if (user.isEmailVerified) {
+      throw new BadRequestException('Email is already verified');
+    }
+
+    const newVerificationToken = randomBytes(32).toString('hex');
+    const tokenExpiry = new Date();
+    tokenExpiry.setHours(tokenExpiry.getHours() + 24);
+
+    user.verificationToken = newVerificationToken;
+    user.verificationTokenExpires = tokenExpiry;
+
+    await this.userRepository.save(user);
+    await this.sendVerificationEmail(user.email, user.verificationToken);
+
+    return { message: 'Verification token resent successfully' };
+  }
+  async verifyEmail(token: string): Promise<{ message: string }> {
+    const user = await this.userRepository.findOne({
+      where: { verificationToken: token },
+    });
+
+    if (!user) {
+      throw new NotFoundException('Invalid or expired verification token');
+    }
+
+    const currentTime = new Date();
+    if (currentTime > user.verificationTokenExpires) {
+      throw new BadRequestException(
+        'Verification token has expired. Please request a new token.',
+      );
+    }
+
+    if (user.isEmailVerified) {
+      throw new BadRequestException('Email is already verified');
+    }
+
+    user.isEmailVerified = true;
+    user.verificationToken = null;
+    user.verificationTokenExpires = null;
+
+    await this.userRepository.save(user);
+
+    return { message: 'Email verified successfully' };
   }
 }

@@ -6,6 +6,7 @@ import {
   Patch,
   Param,
   Delete,
+  Query,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
@@ -25,7 +26,10 @@ export class UsersController {
   findAll() {
     return this.usersService.findAll();
   }
-
+  @Get('verify')
+  async verifyEmail(@Query('token') token: string) {
+    return await this.usersService.verifyEmail(token);
+  }
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.usersService.findOne(+id);
@@ -43,5 +47,10 @@ export class UsersController {
   @Post('/login')
   login(@Body() loginDto: LoginUserDto) {
     return this.usersService.login(loginDto);
+  }
+
+  @Post('resend-verification')
+  async resendVerificationToken(@Body('email') email: string) {
+    return await this.usersService.resendVerificationToken(email);
   }
 }
