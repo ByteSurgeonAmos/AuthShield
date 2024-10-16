@@ -14,12 +14,14 @@ import { LoginUserDto } from './dto/login-user.dto';
 import { JwtService } from '@nestjs/jwt';
 import * as nodemailer from 'nodemailer';
 import { randomBytes } from 'crypto';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class UsersService {
   constructor(
     @InjectRepository(User) private userRepository: Repository<User>,
     private jwtService: JwtService,
+    private config: ConfigService,
   ) {}
 
   async findAll(): Promise<User[]> {
@@ -98,8 +100,8 @@ export class UsersService {
       secure: true,
       port: 465,
       auth: {
-        user: 'amoswachira16@gmail.com',
-        pass: 'gyzm hjdf qjli hlve',
+        user: this.config.get<string>('NOTIFICATIONS_EMAIL'),
+        pass: this.config.get<string>('EMAIL_PASS'),
       },
     });
 
