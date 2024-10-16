@@ -86,6 +86,7 @@ export class UsersService {
       userId: userExists.id,
       email: userExists.email,
       username: userExists.username,
+      role: userExists.isAdmin ? 'admin' : 'user',
     };
     return {
       accesstoken: this.jwtService.sign(payload),

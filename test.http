@@ -7,7 +7,7 @@ content-type: application/json
     "username": "Amos"
 }
 
-###kul
+###
 POST  http://localhost:3000/users/login
 content-type: application/json
 
