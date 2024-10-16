@@ -18,7 +18,7 @@ export class AdminGuard extends AuthGuard implements CanActivate {
     const user = request.user;
 
     if (user.role !== 'admin') {
-      throw new ForbiddenException('Admin access required');
+      throw new ForbiddenException('Admin access required!');
     }
     return true;
   }
