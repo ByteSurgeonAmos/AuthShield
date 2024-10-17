@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { UsersModule } from './users/users.module';
-import { User } from './users/entities/user.entity';
+import { UsersModule } from './auth/auth.module';
+import { Auth } from './auth/entities/auth.entity';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 
 @Module({
@@ -21,7 +21,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
           username: configService.get<string>('USER'),
           password: configService.get<string>('PASS'),
           database: configService.get<string>('DATABASE'),
-          entities: [User],
+          entities: [Auth],
           synchronize: true,
           ssl: configService.get<string>('SSL') === 'true',
         };
