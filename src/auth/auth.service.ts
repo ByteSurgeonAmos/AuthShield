@@ -105,7 +105,7 @@ export class UsersService {
       },
     });
 
-    const verificationLink = `http://localhost:3000/users/verify?token=${token}`;
+    const verificationLink = `${this.config.get<string>('BASE_URL')}/users/verify?token=${token}`;
 
     const htmlContent = `
       <div style="text-align: center;">
