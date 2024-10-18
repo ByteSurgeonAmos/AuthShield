@@ -15,6 +15,9 @@ import { JwtService } from '@nestjs/jwt';
 import * as nodemailer from 'nodemailer';
 import { randomBytes } from 'crypto';
 import { ConfigService } from '@nestjs/config';
+import * as fs from 'fs';
+import * as path from 'path';
+import * as handlebars from 'handlebars';
 
 @Injectable()
 export class UsersService {
@@ -57,39 +60,59 @@ export class UsersService {
     const userExists = await this.userRepository.findOne({
       where: { email: loginDto.email },
     });
+
     if (!userExists) {
       throw new NotFoundException('User not found');
     }
+
+    if (userExists.loginAttempts >= 5) {
+      const lockoutTime = 10 * 60 * 1000;
+      const timeSinceLastAttempt =
+        new Date().getTime() - userExists.lastFailedLogin.getTime();
+
+      if (timeSinceLastAttempt < lockoutTime) {
+        const remainingTime = Math.ceil(
+          (lockoutTime - timeSinceLastAttempt) / 60000,
+        );
+        throw new UnauthorizedException(
+          `Account is locked. Please try again in ${remainingTime} minutes.`,
+        );
+      } else {
+        userExists.loginAttempts = 0;
+      }
+    }
+
     const isPasswordValid = await bcrypt.compare(
       loginDto.password,
       userExists.password,
     );
+
     if (!isPasswordValid) {
       userExists.lastFailedLogin = new Date();
       userExists.loginAttempts++;
       await this.userRepository.save(userExists);
       throw new UnauthorizedException('Invalid credentials');
     }
+
     if (!userExists.isActive) {
       throw new UnauthorizedException('User is not active');
     }
+
     if (!userExists.isEmailVerified) {
       throw new UnauthorizedException('Email is not verified');
     }
-    if (userExists.loginAttempts > 5) {
-      throw new UnauthorizedException(
-        'Too many failed login attempts please wait 10 mins before continuing',
-      );
-    }
+
     userExists.loginAttempts = 0;
     userExists.lastLogin = new Date();
     await this.userRepository.save(userExists);
+
     const payload = {
       userId: userExists.id,
       email: userExists.email,
       username: userExists.username,
       role: userExists.isAdmin ? 'admin' : 'user',
     };
+
     return {
       accesstoken: this.jwtService.sign(payload),
     };
@@ -107,14 +130,15 @@ export class UsersService {
 
     const verificationLink = `${this.config.get<string>('BASE_URL')}/users/verify?token=${token}`;
 
-    const htmlContent = `
-      <div style="text-align: center;">
-        <img src="cid:logo" alt="Logo" style="width: 100px;" />
-        <h2>Welcome to Our Service!</h2>
-        <p>Please click the link below to verify your email:</p>
-        <a href="${verificationLink}" style="background-color: #4CAF50; padding: 10px; color: white; text-decoration: none; border-radius: 5px;">Verify Email</a>
-      </div>
-    `;
+    const templatePath = path.join(
+      __dirname,
+      '..',
+      'templates',
+      'email-verification.html',
+    );
+    const source = fs.readFileSync(templatePath, 'utf-8').toString();
+    const template = handlebars.compile(source);
+    const htmlContent = template({ verificationLink });
 
     await transporter.sendMail({
       from: 'no-reply@app.com',
@@ -124,13 +148,12 @@ export class UsersService {
       attachments: [
         {
           filename: 'logo.svg',
-          path: './logo.svg',
+          path: path.join(__dirname, '..', 'assets', 'logo.svg'),
           cid: 'logo',
         },
       ],
     });
   }
-
   async create(createUserDto: CreateUserDto) {
     const userExists = await this.userRepository.findOne({
       where: { email: createUserDto.email },
