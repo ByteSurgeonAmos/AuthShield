@@ -18,6 +18,8 @@ import { ConfigService } from '@nestjs/config';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as handlebars from 'handlebars';
+import { generateOtp } from 'src/common/generate-otp';
+import { SmsService } from 'src/sms/sms.service';
 
 @Injectable()
 export class UsersService {
@@ -25,6 +27,7 @@ export class UsersService {
     @InjectRepository(Auth) private userRepository: Repository<Auth>,
     private jwtService: JwtService,
     private config: ConfigService,
+    private smsService: SmsService,
   ) {}
 
   async findAll(): Promise<Auth[]> {
@@ -235,5 +238,52 @@ export class UsersService {
     await this.userRepository.save(user);
 
     return { message: 'Email verified successfully' };
+  }
+  async sendOTP(phoneNumber: string, userId: number): Promise<void> {
+    try {
+      console.log(phoneNumber, userId);
+      const user = await this.userRepository.findOne({
+        where: { id: userId },
+      });
+      if (!user) {
+        throw new NotFoundException('User not found');
+      }
+      const otp = generateOtp(6, {
+        digitsOnly: false,
+        includeSpecialChars: false,
+      });
+      user.phoneVerificationOTP = otp;
+      user.phoneNumber = phoneNumber;
+      user.phoneOtpExpiry = new Date(new Date().getTime() + 60 * 60 * 1000);
+
+      await this.smsService.sendSms(
+        phoneNumber,
+        `Your verification code is: ${otp}. This code will expire in 60 minutes. Do not share this code with anyone.
+`,
+      );
+      await this.userRepository.save(user);
+    } catch (error) {}
+  }
+  async verifyOTP(otp: string, userId: number): Promise<{ message: string }> {
+    try {
+      const user = await this.userRepository.findOne({
+        where: { id: userId },
+      });
+      if (!user) {
+        throw new NotFoundException('User not found');
+      }
+      const currentTime = new Date();
+      if (currentTime > user.phoneOtpExpiry) {
+        throw new BadRequestException('OTP has expired');
+      }
+      if (user.phoneVerificationOTP !== otp) {
+        throw new BadRequestException('Invalid OTP');
+      }
+      user.isPhoneVerified = true;
+      user.phoneVerificationOTP = null;
+      user.phoneOtpExpiry = null;
+      await this.userRepository.save(user);
+      return { message: 'Phone verification successful' };
+    } catch (error) {}
   }
 }
