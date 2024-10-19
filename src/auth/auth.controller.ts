@@ -7,6 +7,7 @@ import {
   Param,
   Delete,
   Query,
+  Request,
   UseGuards,
 } from '@nestjs/common';
 import { UsersService } from './auth.service';
@@ -15,7 +16,7 @@ import { UpdateUserDto } from './dto/update-user.dto';
 import { LoginUserDto } from './dto/login-user.dto';
 import { AuthGuard } from './guards/jwt-auth.guard';
 
-@Controller('users')
+@Controller('auth')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
@@ -55,5 +56,13 @@ export class UsersController {
   @Post('resend-verification')
   async resendVerificationToken(@Body('email') email: string) {
     return await this.usersService.resendVerificationToken(email);
+  }
+  @UseGuards(AuthGuard)
+  @Post('send-sms')
+  async sendSMSVerification(
+    @Request() req: any,
+    @Body('phone') phoneNumber: string,
+  ) {
+    return await this.usersService.sendOTP(phoneNumber, req.user.userId);
   }
 }

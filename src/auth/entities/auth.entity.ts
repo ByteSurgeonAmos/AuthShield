@@ -12,6 +12,8 @@ export class Auth {
 
   @Column()
   password: string;
+  @Column()
+  phoneNumber: string;
 
   @Column({ default: () => 'CURRENT_TIMESTAMP' })
   createdAt: Date;
@@ -31,8 +33,14 @@ export class Auth {
   @Column({ default: () => 'CURRENT_TIMESTAMP' })
   lastFailedLogin: Date;
 
+  @Column({ default: () => 'CURRENT_TIMESTAMP' })
+  phoneOtpExpiry: Date;
+
   @Column({ nullable: true })
   passwordResetToken: string;
+
+  @Column({ nullable: true })
+  phoneVerificationOTP: string;
 
   @Column({ nullable: true })
   verificationToken: string;
@@ -48,4 +56,7 @@ export class Auth {
 
   @Column({ default: false })
   isEmailVerified: boolean;
+
+  @Column({ default: false })
+  isPhoneVerified: boolean;
 }
