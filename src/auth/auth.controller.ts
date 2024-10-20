@@ -65,4 +65,10 @@ export class UsersController {
   ) {
     return await this.usersService.sendOTP(phoneNumber, req.user.userId);
   }
+
+  @UseGuards(AuthGuard)
+  @Post('verify-sms')
+  async VerifySMSVerification(@Request() req: any, @Body('otp') otp: string) {
+    return await this.usersService.verifyOTP(otp, req.user.userId);
+  }
 }
