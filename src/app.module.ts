@@ -6,6 +6,7 @@ import { UserRole } from './auth/entities/user-role.entity';
 import { UserDetails } from './auth/entities/user-details.entity';
 import { SecurityAuditLog } from './auth/entities/security-audit-log.entity';
 import { AuthNotification } from './auth/entities/auth-notification.entity';
+import { SecurityQuestion } from './auth/entities/security-question.entity';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { SmsModule } from './sms/sms.module';
 import { HealthModule } from './health/health.module';
@@ -23,7 +24,6 @@ import { ApiDocsModule } from './api-docs/api-docs.module';
       useFactory: (configService: ConfigService) => {
         const databaseUrl = configService.get<string>('DATABASE_URL');
         if (databaseUrl) {
-          // Parse DATABASE_URL format: postgresql://username:password@host:port/database
           const url = new URL(databaseUrl);
           return {
             type: 'postgres',
@@ -31,21 +31,20 @@ import { ApiDocsModule } from './api-docs/api-docs.module';
             port: parseInt(url.port) || 5432,
             username: url.username,
             password: url.password,
-            database: url.pathname.slice(1), // Remove leading '/'
+            database: url.pathname.slice(1),
             entities: [
               User,
               UserRole,
               UserDetails,
               SecurityAuditLog,
               AuthNotification,
+              SecurityQuestion,
             ],
-            synchronize: false, // Don't auto-sync with existing database
+            synchronize: true,
             ssl: configService.get<string>('SSL') === 'true',
             logging: process.env.NODE_ENV === 'development',
           };
         }
-
-        // Fallback to individual environment variables
         return {
           type: 'postgres',
           host: configService.get<string>('HOST') || 'localhost',
@@ -63,8 +62,9 @@ import { ApiDocsModule } from './api-docs/api-docs.module';
             UserDetails,
             SecurityAuditLog,
             AuthNotification,
+            SecurityQuestion,
           ],
-          synchronize: false, // Don't auto-sync with existing database
+          synchronize: true,
           ssl: configService.get<string>('SSL') === 'true',
           logging: process.env.NODE_ENV === 'development',
         };
