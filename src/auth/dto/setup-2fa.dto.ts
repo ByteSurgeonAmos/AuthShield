@@ -12,7 +12,7 @@ export class Setup2FADto {
 
   @IsOptional()
   @IsString()
-  token?: string; // For verifying the setup
+  token?: string;
 }
 
 export class Verify2FADto {

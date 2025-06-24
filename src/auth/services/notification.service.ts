@@ -145,13 +145,21 @@ export class NotificationService {
       readAt: new Date(),
     });
   }
-
   async getUnreadNotifications(userId: string): Promise<AuthNotification[]> {
     return await this.notificationRepository.find({
       where: { userId, isRead: false },
       order: { createdAt: 'DESC' },
     });
   }
+
+  async getAllNotifications(limit: number = 50): Promise<AuthNotification[]> {
+    return await this.notificationRepository.find({
+      order: { createdAt: 'DESC' },
+      take: limit,
+      relations: ['user'],
+    });
+  }
+
   async deleteNotification(notificationId: string): Promise<void> {
     await this.notificationRepository.delete(notificationId);
   }

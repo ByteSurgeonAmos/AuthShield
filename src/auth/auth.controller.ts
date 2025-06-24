@@ -31,8 +31,6 @@ import { JwtAdminGuard } from './guards/jwt-admin.guard';
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
-  // =============== AUTHENTICATION ENDPOINTS ===============
-
   @Post('register')
   @HttpCode(HttpStatus.CREATED)
   async create(@Body() createUserDto: CreateUserDto) {
@@ -74,8 +72,6 @@ export class UsersController {
   async resendVerificationToken(@Body('email') email: string) {
     return this.usersService.resendVerificationToken(email);
   }
-
-  // =============== 2FA ENDPOINTS ===============
 
   @Post('setup-2fa')
   @UseGuards(JwtAuthGuard)
@@ -122,8 +118,6 @@ export class UsersController {
     );
   }
 
-  // =============== PHONE VERIFICATION ENDPOINTS ===============
-
   @Post('send-otp')
   @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.OK)
@@ -138,8 +132,6 @@ export class UsersController {
   async verifyOTP(@Request() req, @Body() body: { otp: string }) {
     return this.usersService.verifyOTP(body.otp, req.user.userId);
   }
-
-  // =============== USER MANAGEMENT ENDPOINTS ===============
 
   @Get()
   @UseGuards(JwtAdminGuard)
@@ -192,8 +184,6 @@ export class UsersController {
   async removeRole(@Param('id') id: string, @Body('role') role: string) {
     return this.usersService.removeRole(id, role as any);
   }
-
-  // =============== ANALYTICS ENDPOINTS ===============
 
   @Get('analytics/overview')
   @UseGuards(JwtAdminGuard)

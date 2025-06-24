@@ -44,7 +44,7 @@ export class User {
   @Column({ name: 'is2FaEnabled', type: 'boolean', default: false })
   is2FaEnabled: boolean;
 
-  @Column({ name: 'dateRegistrated', type: 'varchar', nullable: true })
+  @Column({ name: 'dateregistered', type: 'varchar', nullable: true })
   dateRegistrated: string;
 
   @Column({ type: 'varchar', nullable: true, default: 'NOPASS' })
@@ -75,14 +75,13 @@ export class User {
     length: 20,
     nullable: true,
   })
-  twoFactorMethod: string; // 'email', 'phone', 'authenticator'
-
+  twoFactorMethod: string;
   @Column({
     name: 'two_factor_backup_codes',
     type: 'text',
     nullable: true,
   })
-  twoFactorBackupCodes: string; // JSON string of backup codes
+  twoFactorBackupCodes: string;
 
   @Column({ name: 'login_notification_email', type: 'boolean', default: true })
   loginNotificationEmail: boolean;
@@ -112,7 +111,6 @@ export class User {
   })
   referalByAccount: string;
 
-  // Enhanced fields for better user management
   @Column({ name: 'last_login', type: 'timestamp', nullable: true })
   lastLogin: Date;
 
@@ -138,7 +136,6 @@ export class User {
   @Column({ name: 'password_reset_expires', type: 'timestamp', nullable: true })
   passwordResetExpires: Date;
 
-  // Relationships
   @OneToMany(() => UserRole, (userRole) => userRole.user, { eager: true })
   roles: UserRole[];
 

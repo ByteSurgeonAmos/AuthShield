@@ -27,7 +27,6 @@ export class UserDetails {
   @Column({ type: 'varchar', nullable: true })
   country: string;
 
-  // Relationship
   @OneToOne(() => User, (user) => user.details)
   @JoinColumn({ name: 'user_id' })
   user: User;
