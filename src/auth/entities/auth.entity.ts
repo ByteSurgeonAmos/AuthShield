@@ -1,62 +1,150 @@
-import { Entity, PrimaryGeneratedColumn, Column } from 'typeorm';
-@Entity()
-export class Auth {
-  @PrimaryGeneratedColumn()
+import {
+  Entity,
+  PrimaryColumn,
+  Column,
+  OneToMany,
+  OneToOne,
+  JoinColumn,
+} from 'typeorm';
+import { UserRole } from './user-role.entity';
+import { UserDetails } from './user-details.entity';
+
+@Entity('user_account')
+export class User {
+  @PrimaryColumn({ name: 'user_id', type: 'varchar' })
+  userId: string;
+
+  @Column({ name: 'id', type: 'integer', nullable: false })
   id: number;
 
-  @Column({ unique: true })
-  email: string;
-
-  @Column({ unique: true })
+  @Column({ type: 'varchar', nullable: true })
   username: string;
 
-  @Column()
+  @Column({ type: 'varchar', nullable: true, unique: true })
+  email: string;
+
+  @Column({ name: 'email_verified', type: 'boolean', default: false })
+  emailVerified: boolean;
+
+  @Column({ name: 'phoneNo_verified', type: 'boolean', default: false })
+  phoneNoVerified: boolean;
+
+  @Column({ name: 'OtpCode', type: 'varchar', nullable: true })
+  otpCode: string;
+
+  @Column({ name: 'otpExip', type: 'varchar', nullable: true })
+  otpExpiry: string;
+
+  @Column({ name: 'isVerified', type: 'boolean', default: false })
+  isVerified: boolean;
+
+  @Column({ name: 'isAccountActive', type: 'boolean', default: true })
+  isAccountActive: boolean;
+
+  @Column({ name: 'is2FaEnabled', type: 'boolean', default: false })
+  is2FaEnabled: boolean;
+
+  @Column({ name: 'dateRegistrated', type: 'varchar', nullable: true })
+  dateRegistrated: string;
+
+  @Column({ type: 'varchar', nullable: true, default: 'NOPASS' })
   password: string;
-  @Column()
+
+  @Column({
+    name: 'auth_provider',
+    type: 'varchar',
+    length: 50,
+    nullable: true,
+  })
+  authProvider: string;
+
+  @Column({ type: 'varchar', nullable: true })
+  phone: string;
+
+  @Column({
+    name: 'two_factor_secret',
+    type: 'varchar',
+    length: 200,
+    nullable: true,
+  })
+  twoFactorSecret: string;
+
+  @Column({
+    name: 'two_factor_method',
+    type: 'varchar',
+    length: 20,
+    nullable: true,
+  })
+  twoFactorMethod: string; // 'email', 'phone', 'authenticator'
+
+  @Column({
+    name: 'two_factor_backup_codes',
+    type: 'text',
+    nullable: true,
+  })
+  twoFactorBackupCodes: string; // JSON string of backup codes
+
+  @Column({ name: 'login_notification_email', type: 'boolean', default: true })
+  loginNotificationEmail: boolean;
+
+  @Column({ name: 'phone_number', type: 'varchar', nullable: true })
   phoneNumber: string;
 
-  @Column({ default: () => 'CURRENT_TIMESTAMP' })
-  createdAt: Date;
+  @Column({
+    name: 'completedtrades',
+    type: 'integer',
+    nullable: true,
+    default: 0,
+  })
+  completedTrades: number;
 
-  @Column({ default: () => 'CURRENT_TIMESTAMP' })
-  updatedAt: Date;
+  @Column({ name: 'country_code', type: 'varchar', length: 5, nullable: true })
+  countryCode: string;
 
-  @Column({ default: true })
-  isActive: boolean;
+  @Column({ name: 'username_changed', type: 'boolean', default: false })
+  usernameChanged: boolean;
 
-  @Column({ default: 0 })
-  loginAttempts: number;
+  @Column({
+    name: 'referal_by_account',
+    type: 'varchar',
+    length: 50,
+    nullable: true,
+  })
+  referalByAccount: string;
 
-  @Column({ default: () => 'CURRENT_TIMESTAMP' })
+  // Enhanced fields for better user management
+  @Column({ name: 'last_login', type: 'timestamp', nullable: true })
   lastLogin: Date;
 
-  @Column({ default: () => 'CURRENT_TIMESTAMP' })
-  lastFailedLogin: Date;
+  @Column({ name: 'failed_login_attempts', type: 'integer', default: 0 })
+  failedLoginAttempts: number;
 
-  @Column({ default: () => 'CURRENT_TIMESTAMP' })
-  phoneOtpExpiry: Date;
+  @Column({ name: 'account_locked_until', type: 'timestamp', nullable: true })
+  accountLockedUntil: Date;
 
-  @Column({ nullable: true })
+  @Column({ name: 'email_verification_token', type: 'varchar', nullable: true })
+  emailVerificationToken: string;
+
+  @Column({
+    name: 'email_verification_expires',
+    type: 'timestamp',
+    nullable: true,
+  })
+  emailVerificationExpires: Date;
+
+  @Column({ name: 'password_reset_token', type: 'varchar', nullable: true })
   passwordResetToken: string;
 
-  @Column({ nullable: true })
-  phoneVerificationOTP: string;
+  @Column({ name: 'password_reset_expires', type: 'timestamp', nullable: true })
+  passwordResetExpires: Date;
 
-  @Column({ nullable: true })
-  verificationToken: string;
+  // Relationships
+  @OneToMany(() => UserRole, (userRole) => userRole.user, { eager: true })
+  roles: UserRole[];
 
-  @Column({ nullable: true })
-  verificationTokenExpires: Date;
-
-  @Column({ default: false })
-  passwordResetTokenExpired: boolean;
-
-  @Column({ default: false })
-  isAdmin: boolean;
-
-  @Column({ default: false })
-  isEmailVerified: boolean;
-
-  @Column({ default: false })
-  isPhoneVerified: boolean;
+  @OneToOne(() => UserDetails, (userDetails) => userDetails.user, {
+    eager: true,
+  })
+  @JoinColumn({ name: 'user_id' })
+  details: UserDetails;
 }
