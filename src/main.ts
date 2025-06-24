@@ -1,19 +1,17 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
-import { ValidationPipe } from '@nestjs/common';
+import { Logger, ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  // Enable CORS for microservice communication
   app.enableCors({
-    origin: '*', // Configure this based on your security requirements
+    origin: '*',
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
     credentials: true,
   });
 
-  // Add global prefix for API versioning
   app.setGlobalPrefix('api/v1');
 
   app.useGlobalPipes(
@@ -24,9 +22,8 @@ async function bootstrap() {
     }),
   );
 
-  // Swagger setup
   const config = new DocumentBuilder()
-    .setTitle('Xmobit User Management API')
+    .setTitle('Auth Engine  API')
     .setDescription(
       'Comprehensive user management microservice for Xmobit platform with advanced authentication, 2FA, security auditing, and analytics',
     )
@@ -60,10 +57,11 @@ async function bootstrap() {
 
   const port = process.env.PORT || 3000;
   await app.listen(port);
-  console.log(
-    `Xmobit User Management Service is running on: http://localhost:${port}/api/v1`,
+  Logger.log(
+    ` Auth Engine Service is running on: http://localhost:${port}/api/v1`,
+    'INFO',
   );
-  console.log(`Swagger API Documentation: http://localhost:${port}/api`);
+  Logger.log(`Swagger API Documentation: http://localhost:${port}/api`, 'INFO');
 }
 
 bootstrap();

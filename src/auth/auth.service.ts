@@ -85,13 +85,11 @@ export class UsersService {
   async update(userId: string, updateUserDto: UpdateUserDto) {
     const user = await this.findOne(userId);
 
-    // Check username change restrictions (similar to security questions)
     if (updateUserDto.username && updateUserDto.username !== user.username) {
       if (user.usernameChanged) {
         throw new BadRequestException('Username can only be changed once');
       }
 
-      // Check if new username is unique
       const existingUser = await this.userRepository.findOne({
         where: { username: updateUserDto.username },
       });
@@ -100,10 +98,8 @@ export class UsersService {
         throw new BadRequestException('Username already exists');
       }
 
-      // Mark username as changed
       user.usernameChanged = true;
 
-      // Record security event for username change
       await this.securityAuditService.recordSecurityEvent({
         eventType: 'USERNAME_CHANGED',
         userId: userId,
@@ -115,17 +111,14 @@ export class UsersService {
       });
     }
 
-    // Update user basic info
     Object.assign(user, updateUserDto);
 
-    // If updating user details
     if (
       updateUserDto.fullname ||
       updateUserDto.country ||
       updateUserDto.userBio
     ) {
       if (!user.details) {
-        // Create new details if they don't exist
         const details = this.detailsRepository.create({
           userId: user.userId,
           fullname: updateUserDto.fullname,
@@ -134,7 +127,6 @@ export class UsersService {
         });
         await this.detailsRepository.save(details);
       } else {
-        // Update existing details
         if (updateUserDto.fullname)
           user.details.fullname = updateUserDto.fullname;
         if (updateUserDto.country) user.details.country = updateUserDto.country;
@@ -149,11 +141,9 @@ export class UsersService {
   async remove(userId: string): Promise<void> {
     const user = await this.findOne(userId);
 
-    // Delete related records first
     await this.roleRepository.delete({ userId });
     await this.detailsRepository.delete({ userId });
 
-    // Delete user
     const result = await this.userRepository.delete({ userId });
     if (result.affected === 0) {
       throw new NotFoundException(`User with ID ${userId} not found`);
@@ -224,37 +214,29 @@ export class UsersService {
       }
     }
 
-    // Hash password
     const hashedPassword = await bcrypt.hash(createUserDto.password, 12);
 
-    // Generate verification tokens
     const emailVerificationToken = randomBytes(32).toString('hex');
     const tokenExpiry = new Date();
     tokenExpiry.setHours(tokenExpiry.getHours() + 24);
 
-    // Generate unique user ID
     const userId = uuidv4();
 
-    // Generate random username if not provided (for crypto trading platform)
     let finalUsername = createUserDto.username;
     if (!finalUsername) {
       finalUsername = await ensureUniqueUsername(this.userRepository);
     }
 
-    // Generate random profile image
     const profileImageUrl = generateRandomProfileImage(finalUsername);
 
-    // Get next ID from sequence (you might need to implement this differently)
-    const lastUser = await this.userRepository
-      .createQueryBuilder('user')
-      .orderBy('user.id', 'DESC')
-      .getOne();
-    const nextId = (lastUser?.id || 0) + 1;
+    // const lastUser = await this.userRepository
+    //   .createQueryBuilder('user')
+    //   .orderBy('user.id', 'DESC')
+    //   .getOne();
+    // const nextId = (lastUser?.id || 0) + 1;
 
-    // Create user
     const user = this.userRepository.create({
       userId,
-      id: nextId,
       username: finalUsername,
       email: createUserDto.email,
       password: hashedPassword,
@@ -268,14 +250,12 @@ export class UsersService {
 
     const savedUser = await this.userRepository.save(user);
 
-    // Create default role
     const userRole = this.roleRepository.create({
       userId: savedUser.userId,
       roles: UserRoleType.USER,
     });
     await this.roleRepository.save(userRole);
 
-    // Create user details if provided
     if (createUserDto.fullname || createUserDto.country) {
       const userDetails = this.detailsRepository.create({
         userId: savedUser.userId,
@@ -285,7 +265,6 @@ export class UsersService {
       await this.detailsRepository.save(userDetails);
     }
 
-    // Send verification email
     await this.sendVerificationEmail(
       savedUser.email,
       savedUser.emailVerificationToken,
@@ -418,7 +397,6 @@ export class UsersService {
   ): Promise<{ message: string }> {
     const user = await this.findOne(userId);
 
-    // Check if role already exists
     const existingRole = await this.roleRepository.findOne({
       where: { userId, roles: role },
     });
@@ -458,19 +436,16 @@ export class UsersService {
     let qrCodeUrl;
 
     if (method === TwoFactorMethod.AUTHENTICATOR) {
-      // Generate secret for authenticator app
       secret = speakeasy.generateSecret({
         name: `xmobit (${user.email})`,
         length: 20,
       });
 
-      // Generate QR code URL for the secret
       qrCodeUrl = await qrcode.toDataURL(secret.otpauth_url);
     } else {
       throw new BadRequestException('Invalid 2FA method');
     }
 
-    // Save the secret to the user record
     user.twoFactorSecret = secret.base32;
     user.is2FaEnabled = true;
 
@@ -493,7 +468,6 @@ export class UsersService {
       throw new BadRequestException('Two-factor authentication is not enabled');
     }
 
-    // Verify the token
     const isValid = speakeasy.totp.verify({
       secret: user.twoFactorSecret,
       encoding: 'base32',
@@ -520,10 +494,9 @@ export class UsersService {
     return { message: 'Two-factor authentication disabled successfully' };
   }
 
-  // Login notification email
   async sendLoginNotification(user: User, loginDetails: any) {
     if (!user.loginNotificationEmail) {
-      return; // User has disabled login notifications
+      return;
     }
 
     const transporter = nodemailer.createTransporter({
@@ -560,7 +533,6 @@ export class UsersService {
     }
   }
 
-  // 2FA Setup
   async setup2FA(userId: string, method: TwoFactorMethod): Promise<any> {
     const user = await this.findOne(userId);
 
@@ -571,10 +543,8 @@ export class UsersService {
         length: 32,
       });
 
-      // Generate QR code
       const qrCodeUrl = await qrcode.toDataURL(secret.otpauth_url);
 
-      // Store the secret temporarily (user needs to verify before enabling)
       user.twoFactorSecret = secret.base32;
       user.twoFactorMethod = method;
       await this.userRepository.save(user);
@@ -618,14 +588,12 @@ export class UsersService {
       }
     }
 
-    // Enable 2FA
     user.is2FaEnabled = true;
     await this.userRepository.save(user);
 
     return { message: '2FA enabled successfully' };
   }
 
-  // Send 2FA code (for email/phone methods)
   async send2FACode(userId: string): Promise<{ message: string }> {
     const user = await this.findOne(userId);
 
@@ -634,9 +602,8 @@ export class UsersService {
     }
 
     const code = generateOtp(6, { digitsOnly: true });
-    const expiryTime = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+    const expiryTime = new Date(Date.now() + 10 * 60 * 1000);
 
-    // Store the code temporarily
     user.otpCode = code;
     user.otpExpiry = expiryTime.toISOString();
     await this.userRepository.save(user);
@@ -656,7 +623,6 @@ export class UsersService {
     return { message: `2FA code sent to your ${user.twoFactorMethod}` };
   }
 
-  // Send 2FA email
   private async send2FAEmail(email: string, code: string) {
     const transporter = nodemailer.createTransporter({
       host: 'smtp.privateemail.com',
@@ -680,7 +646,6 @@ export class UsersService {
     });
   }
 
-  // Verify 2FA code during login
   async verify2FACode(userId: string, token: string): Promise<boolean> {
     const user = await this.findOne(userId);
 
@@ -696,7 +661,6 @@ export class UsersService {
         window: 2,
       });
     } else {
-      // For email/phone 2FA
       if (!user.otpCode || !user.otpExpiry) {
         throw new BadRequestException(
           'No 2FA code found. Please request a new one.',
@@ -713,7 +677,6 @@ export class UsersService {
       const isValid = user.otpCode === token;
 
       if (isValid) {
-        // Clear the used code
         user.otpCode = null;
         user.otpExpiry = null;
         await this.userRepository.save(user);
@@ -723,14 +686,12 @@ export class UsersService {
     }
   }
 
-  // Disable 2FA
   async disable2FA(
     userId: string,
     currentPassword: string,
   ): Promise<{ message: string }> {
     const user = await this.findOne(userId);
 
-    // Verify current password
     const isPasswordValid = await bcrypt.compare(
       currentPassword,
       user.password,
@@ -750,7 +711,6 @@ export class UsersService {
     return { message: '2FA disabled successfully' };
   }
 
-  // Analytics methods
   async getUserAnalytics(timeframe: string = 'monthly') {
     const endDate = new Date();
     let startDate = new Date();
@@ -781,7 +741,6 @@ export class UsersService {
       where: { is2FaEnabled: true },
     });
 
-    // Recent registrations
     const recentRegistrations = await this.userRepository
       .createQueryBuilder('user')
       .where('user.dateRegistrated >= :startDate', {
@@ -789,14 +748,12 @@ export class UsersService {
       })
       .getCount();
 
-    // Users by auth provider
     const authProviders = await this.userRepository
       .createQueryBuilder('user')
       .select('user.authProvider, COUNT(*) as count')
       .groupBy('user.authProvider')
       .getRawMany();
 
-    // Users by country (from details)
     const usersByCountry = await this.detailsRepository
       .createQueryBuilder('details')
       .select('details.country, COUNT(*) as count')
@@ -840,19 +797,16 @@ export class UsersService {
         break;
     }
 
-    // Recent logins
     const recentLogins = await this.userRepository
       .createQueryBuilder('user')
       .where('user.lastLogin >= :startDate', { startDate })
       .getCount();
 
-    // Failed login attempts
     const failedAttempts = await this.userRepository
       .createQueryBuilder('user')
       .select('SUM(user.failedLoginAttempts)', 'totalFailedAttempts')
       .getRawOne();
 
-    // Locked accounts
     const lockedAccounts = await this.userRepository.count({
       where: { accountLockedUntil: new Date() },
     });
@@ -868,7 +822,6 @@ export class UsersService {
   }
 
   async getSecurityAnalytics() {
-    // Users with 2FA enabled
     const twoFAStats = await this.userRepository
       .createQueryBuilder('user')
       .select('user.twoFactorMethod, COUNT(*) as count')
@@ -876,7 +829,6 @@ export class UsersService {
       .groupBy('user.twoFactorMethod')
       .getRawMany();
 
-    // Password security metrics
     const unverifiedUsers = await this.userRepository.count({
       where: { emailVerified: false },
     });
@@ -914,7 +866,6 @@ export class UsersService {
 
     return Math.max(score, 0);
   }
-  // Enhanced login with 2FA support
   async enhancedLogin(
     loginDto: LoginUserDto,
     loginDetails: any,
@@ -924,19 +875,22 @@ export class UsersService {
     accesstoken?: string;
     user?: any;
     message?: string;
+    requiresVerification?: boolean;
+    email?: string;
+    statusCode?: number;
   }> {
     const user = await this.findByEmail(loginDto.email);
 
     if (!user) {
-      throw new NotFoundException('User not found');
+      throw new NotFoundException('Invalid email or password');
     }
 
-    // Check if account is active
     if (!user.isAccountActive) {
-      throw new UnauthorizedException('Account is not active');
+      throw new UnauthorizedException(
+        'Your account is not active. Kindly contact support.',
+      );
     }
 
-    // Check if account is locked
     if (user.accountLockedUntil && new Date() < user.accountLockedUntil) {
       const remainingTime = Math.ceil(
         (user.accountLockedUntil.getTime() - new Date().getTime()) / 60000,
@@ -946,24 +900,19 @@ export class UsersService {
       );
     }
 
-    // Verify password
     const isPasswordValid = await bcrypt.compare(
       loginDto.password,
       user.password,
     );
-
     if (!isPasswordValid) {
-      // Increment failed login attempts
       user.failedLoginAttempts = (user.failedLoginAttempts || 0) + 1;
 
-      // Lock account after 5 failed attempts
       if (user.failedLoginAttempts >= 5) {
-        user.accountLockedUntil = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+        user.accountLockedUntil = new Date(Date.now() + 10 * 60 * 1000);
       }
 
       await this.userRepository.save(user);
 
-      // Record failed login attempt
       await this.securityAuditService.recordSecurityEvent({
         eventType: 'FAILED_LOGIN',
         reason: 'Invalid password',
@@ -975,15 +924,41 @@ export class UsersService {
 
       throw new UnauthorizedException('Invalid credentials');
     }
-
-    // Check email verification
     if (!user.emailVerified) {
-      throw new UnauthorizedException('Email is not verified');
+      if (
+        !user.emailVerificationToken ||
+        new Date() > user.emailVerificationExpires
+      ) {
+        const newVerificationToken = randomBytes(32).toString('hex');
+        const tokenExpiry = new Date();
+        tokenExpiry.setHours(tokenExpiry.getHours() + 24);
+
+        user.emailVerificationToken = newVerificationToken;
+        user.emailVerificationExpires = tokenExpiry;
+        await this.userRepository.save(user);
+      }
+
+      await this.sendVerificationEmail(user.email, user.emailVerificationToken);
+
+      await this.securityAuditService.recordSecurityEvent({
+        eventType: 'VERIFICATION_EMAIL_SENT',
+        reason: 'Login attempt with unverified email',
+        userId: user.userId,
+        email: user.email,
+        ipAddress: loginDetails.ip,
+        userAgent: loginDetails.userAgent,
+      });
+
+      return {
+        message:
+          'Email is not verified. A verification email has been sent to your email address.',
+        requiresVerification: true,
+        email: user.email,
+        statusCode: 401,
+      };
     }
 
-    // Check if 2FA is enabled
     if (user.is2FaEnabled) {
-      // For email/phone 2FA, send code automatically
       if (
         user.twoFactorMethod === TwoFactorMethod.EMAIL ||
         (user.twoFactorMethod === TwoFactorMethod.PHONE && user.phoneNumber)
@@ -991,12 +966,11 @@ export class UsersService {
         await this.send2FACode(user.userId);
       }
 
-      // Generate temporary token for 2FA verification (valid for 10 minutes)
       const temporaryPayload = {
         userId: user.userId,
         email: user.email,
         purpose: '2FA_VERIFICATION',
-        exp: Math.floor(Date.now() / 1000) + 10 * 60, // 10 minutes
+        exp: Math.floor(Date.now() / 1000) + 10 * 60,
       };
 
       const temporaryToken = this.jwtService.sign(temporaryPayload);
@@ -1008,19 +982,15 @@ export class UsersService {
       };
     }
 
-    // If no 2FA, complete login immediately
     return this.completeLogin(user, loginDetails);
   }
 
-  // Complete login after 2FA verification or when 2FA is not enabled
   private async completeLogin(user: User, loginDetails: any) {
-    // Reset failed login attempts and update last login
     user.failedLoginAttempts = 0;
     user.accountLockedUntil = null;
     user.lastLogin = new Date();
     await this.userRepository.save(user);
 
-    // Record successful login
     await this.securityAuditService.recordSecurityEvent({
       eventType: 'SUCCESSFUL_LOGIN',
       userId: user.userId,
@@ -1029,10 +999,8 @@ export class UsersService {
       userAgent: loginDetails.userAgent,
     });
 
-    // Send login notification
     await this.sendLoginNotification(user, loginDetails);
 
-    // Get user roles
     const userRoles = user.roles?.map((role) => role.roles) || [
       UserRoleType.USER,
     ];
@@ -1065,14 +1033,12 @@ export class UsersService {
     };
   }
 
-  // New method to verify 2FA and complete login
   async verify2FAAndCompleteLogin(
     temporaryToken: string,
     twoFactorCode: string,
     loginDetails: any,
   ): Promise<{ accesstoken: string; user: any; message: string }> {
     try {
-      // Verify temporary token
       const decoded = this.jwtService.verify(temporaryToken);
 
       if (decoded.purpose !== '2FA_VERIFICATION') {
@@ -1085,11 +1051,9 @@ export class UsersService {
         throw new BadRequestException('2FA is not enabled for this user');
       }
 
-      // Verify 2FA code
       const is2FAValid = await this.verify2FACode(user.userId, twoFactorCode);
 
       if (!is2FAValid) {
-        // Record failed 2FA attempt
         await this.securityAuditService.recordSecurityEvent({
           eventType: 'FAILED_2FA',
           reason: 'Invalid 2FA code',
@@ -1101,7 +1065,6 @@ export class UsersService {
         throw new UnauthorizedException('Invalid 2FA code');
       }
 
-      // Record successful 2FA verification
       await this.securityAuditService.recordSecurityEvent({
         eventType: 'SUCCESSFUL_2FA',
         userId: user.userId,
@@ -1110,7 +1073,6 @@ export class UsersService {
         userAgent: loginDetails.userAgent,
       });
 
-      // Complete login process
       const loginResult = await this.completeLogin(user, loginDetails);
 
       return {
@@ -1157,7 +1119,6 @@ export class UsersService {
   }
 
   async markNotificationAsRead(notificationId: string, userId: string) {
-    // Verify the notification belongs to the user
     const notification = await this.notificationService.getUserNotifications(
       userId,
       100,
@@ -1175,7 +1136,6 @@ export class UsersService {
   }
 
   async deleteNotification(notificationId: string, userId: string) {
-    // Verify the notification belongs to the user
     const notification = await this.notificationService.getUserNotifications(
       userId,
       100,
@@ -1191,15 +1151,8 @@ export class UsersService {
     await this.notificationService.deleteNotification(notificationId);
     return { message: 'Notification deleted successfully' };
   }
-
   async getAllNotifications(limit: number = 50) {
-    // This would need to be implemented in the notification service
-    // For now, return a placeholder
-    return {
-      message:
-        'Admin notification retrieval - implement in notification service',
-      limit,
-    };
+    return await this.notificationService.getAllNotifications(limit);
   }
 
   async broadcastNotification(
@@ -1212,10 +1165,8 @@ export class UsersService {
     let targetUsers: User[];
 
     if (userIds && userIds.length > 0) {
-      // Send to specific users
       targetUsers = await this.userRepository.findByIds(userIds);
     } else {
-      // Broadcast to all users
       targetUsers = await this.userRepository.find({
         select: ['userId', 'email'],
       });
@@ -1250,12 +1201,11 @@ export class UsersService {
     duration?: number,
   ) {
     const user = await this.findOne(userId);
-    const lockDuration = duration || 30; // Default 30 minutes
+    const lockDuration = duration || 30;
 
     user.accountLockedUntil = new Date(Date.now() + lockDuration * 60 * 1000);
     await this.userRepository.save(user);
 
-    // Record security event
     await this.securityAuditService.recordSecurityEvent({
       eventType: 'MANUAL_LOCKOUT',
       reason: reason,
@@ -1264,7 +1214,6 @@ export class UsersService {
       additionalData: { lockDuration },
     });
 
-    // Send notification
     await this.notificationService.createAuthNotification(
       userId,
       user.email,
@@ -1288,7 +1237,6 @@ export class UsersService {
     user.failedLoginAttempts = 0;
     await this.userRepository.save(user);
 
-    // Record security event
     await this.securityAuditService.recordSecurityEvent({
       eventType: 'MANUAL_UNLOCK',
       reason: reason,
@@ -1296,7 +1244,6 @@ export class UsersService {
       email: user.email,
     });
 
-    // Send notification
     await this.notificationService.createAuthNotification(
       userId,
       user.email,
@@ -1315,7 +1262,6 @@ export class UsersService {
   async getSuspiciousActivities(hours: number = 24) {
     const startDate = new Date(Date.now() - hours * 60 * 60 * 1000);
 
-    // Get failed login attempts
     const failedLogins = await this.userRepository
       .createQueryBuilder('user')
       .where('user.failedLoginAttempts > :threshold', { threshold: 3 })
@@ -1327,7 +1273,6 @@ export class UsersService {
       ])
       .getMany();
 
-    // Get recently locked accounts
     const lockedAccounts = await this.userRepository
       .createQueryBuilder('user')
       .where('user.accountLockedUntil > :now', { now: new Date() })
@@ -1339,7 +1284,6 @@ export class UsersService {
       ])
       .getMany();
 
-    // Get security events for the period
     const securityEvents =
       await this.securityAuditService.getEventsForDateRange(
         startDate,
@@ -1360,7 +1304,6 @@ export class UsersService {
   }
 
   async getFailedLoginPatterns() {
-    // Get users with multiple failed attempts
     const patterns = await this.userRepository
       .createQueryBuilder('user')
       .where('user.failedLoginAttempts > 0')
@@ -1375,7 +1318,6 @@ export class UsersService {
       .limit(50)
       .getMany();
 
-    // Group by attempt count
     const grouped = patterns.reduce((acc, user) => {
       const attempts = user.failedLoginAttempts;
       if (!acc[attempts]) {
@@ -1417,7 +1359,6 @@ export class UsersService {
       const userExists = await this.findByEmail(email);
 
       if (userExists) {
-        // Check account status
         if (!userExists.isAccountActive) {
           return {
             statusCode: 401,
@@ -1426,8 +1367,7 @@ export class UsersService {
           };
         }
 
-        // Check for BTC wallet (assuming this is from your microservice architecture)
-        // You might need to implement this based on your wallet service
+        // Check for BTC wallet
 
         // Generate random profile image if user doesn't have one
         const profileImage =
@@ -1517,49 +1457,42 @@ export class UsersService {
     fullname?: string,
     profileUrl?: string,
   ): Promise<User> {
-    // Generate unique username for social login
     const randomUsername = await ensureUniqueUsername(this.userRepository);
 
-    // Generate verification tokens
     const emailVerificationToken = randomBytes(32).toString('hex');
     const tokenExpiry = new Date();
     tokenExpiry.setHours(tokenExpiry.getHours() + 24);
 
-    // Generate unique user ID
     const userId = uuidv4();
 
-    // Get next ID from sequence
     const lastUser = await this.userRepository
       .createQueryBuilder('user')
       .orderBy('user.id', 'DESC')
       .getOne();
     const nextId = (lastUser?.id || 0) + 1;
 
-    // Create user
     const user = this.userRepository.create({
       userId,
       id: nextId,
       username: randomUsername,
       email: email,
-      password: 'SOCIAL_LOGIN', // No password for social login
+      password: 'SOCIAL_LOGIN',
       emailVerificationToken,
       emailVerificationExpires: tokenExpiry,
       dateRegistrated: new Date().toISOString(),
       authProvider: authProvider,
-      emailVerified: true, // Social logins are pre-verified
+      emailVerified: true,
       isVerified: true,
     });
 
     const savedUser = await this.userRepository.save(user);
 
-    // Create default role
     const userRole = this.roleRepository.create({
       userId: savedUser.userId,
       roles: UserRoleType.USER,
     });
     await this.roleRepository.save(userRole);
 
-    // Create user details if provided
     if (fullname) {
       const userDetails = this.detailsRepository.create({
         userId: savedUser.userId,
@@ -1579,18 +1512,16 @@ export class UsersService {
   ): Promise<{ message: string }> {
     const user = await this.findOne(userId);
 
-    // Check if user already has a security question
     const existingQuestion = await this.securityQuestionRepository.findOne({
       where: { userId },
     });
 
     if (existingQuestion) {
       throw new BadRequestException(
-        'Security question already set. Use update endpoint to change it.',
+        'Security question already set. Use update page to change it.',
       );
     }
 
-    // Hash the answer
     const answerHash = crypto
       .createHash('sha256')
       .update(setSecurityQuestionDto.answer.toLowerCase().trim())
@@ -1605,7 +1536,6 @@ export class UsersService {
 
     await this.securityQuestionRepository.save(securityQuestion);
 
-    // Record security event
     await this.securityAuditService.recordSecurityEvent({
       eventType: 'SECURITY_QUESTION_SET',
       userId: userId,
@@ -1627,7 +1557,6 @@ export class UsersService {
       throw new NotFoundException('No security question found for this user');
     }
 
-    // Hash the provided answer
     const providedAnswerHash = crypto
       .createHash('sha256')
       .update(verifySecurityQuestionDto.answer.toLowerCase().trim())
@@ -1635,7 +1564,6 @@ export class UsersService {
 
     const isValid = providedAnswerHash === securityQuestion.answerHash;
 
-    // Record security event
     await this.securityAuditService.recordSecurityEvent({
       eventType: isValid
         ? 'SECURITY_QUESTION_VERIFIED'
@@ -1671,7 +1599,6 @@ export class UsersService {
       );
     }
 
-    // Verify current answer
     const currentAnswerHash = crypto
       .createHash('sha256')
       .update(updateSecurityQuestionDto.currentAnswer.toLowerCase().trim())
@@ -1681,20 +1608,17 @@ export class UsersService {
       throw new UnauthorizedException('Current answer is incorrect');
     }
 
-    // Hash the new answer
     const newAnswerHash = crypto
       .createHash('sha256')
       .update(updateSecurityQuestionDto.newAnswer.toLowerCase().trim())
       .digest('hex');
 
-    // Update the security question
     securityQuestion.question = updateSecurityQuestionDto.newQuestion;
     securityQuestion.answerHash = newAnswerHash;
     securityQuestion.isChanged = true;
 
     await this.securityQuestionRepository.save(securityQuestion);
 
-    // Record security event
     await this.securityAuditService.recordSecurityEvent({
       eventType: 'SECURITY_QUESTION_UPDATED',
       userId: userId,

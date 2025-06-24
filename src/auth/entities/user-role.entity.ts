@@ -28,7 +28,6 @@ export class UserRole {
   })
   roles: UserRoleType;
 
-  // Relationship
   @ManyToOne(() => User, (user) => user.roles)
   @JoinColumn({ name: 'user_id' })
   user: User;
