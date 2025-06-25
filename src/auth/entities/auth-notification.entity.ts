@@ -13,8 +13,7 @@ import { User } from './auth.entity';
 export class AuthNotification {
   @PrimaryGeneratedColumn('uuid')
   id: string;
-
-  @Column({ name: 'user_id' })
+  @Column({ name: 'user_id', type: 'varchar', length: 255 })
   userId: string;
 
   @Column()
@@ -43,8 +42,7 @@ export class AuthNotification {
 
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
-
   @ManyToOne(() => User)
-  @JoinColumn({ name: 'user_id' })
+  @JoinColumn({ name: 'user_id', referencedColumnName: 'userId' })
   user: User;
 }

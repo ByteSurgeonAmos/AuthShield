@@ -8,14 +8,17 @@ import {
 } from 'typeorm';
 import { UserRole } from './user-role.entity';
 import { UserDetails } from './user-details.entity';
+import { SecurityQuestion } from './security-question.entity';
 
 @Entity('user_account')
 export class User {
-  @PrimaryColumn({ name: 'user_id', type: 'varchar' })
+  @PrimaryColumn({
+    name: 'user_id',
+    type: 'varchar',
+    length: 255,
+    nullable: false,
+  })
   userId: string;
-
-  @Column({ name: 'id', type: 'integer', nullable: false })
-  id: number;
 
   @Column({ type: 'varchar', nullable: true })
   username: string;
@@ -135,13 +138,17 @@ export class User {
 
   @Column({ name: 'password_reset_expires', type: 'timestamp', nullable: true })
   passwordResetExpires: Date;
-
   @OneToMany(() => UserRole, (userRole) => userRole.user, { eager: true })
   roles: UserRole[];
-
   @OneToOne(() => UserDetails, (userDetails) => userDetails.user, {
     eager: true,
   })
-  @JoinColumn({ name: 'user_id' })
+  @JoinColumn({ name: 'userId', referencedColumnName: 'userId' })
   details: UserDetails;
+
+  @OneToMany(
+    () => SecurityQuestion,
+    (securityQuestion) => securityQuestion.user,
+  )
+  securityQuestions: SecurityQuestion[];
 }

@@ -17,8 +17,7 @@ export enum UserRoleType {
 export class UserRole {
   @PrimaryGeneratedColumn()
   id: number;
-
-  @Column({ name: 'user_id', type: 'varchar' })
+  @Column({ name: 'user_id', type: 'varchar', length: 255 })
   userId: string;
 
   @Column({
@@ -27,8 +26,7 @@ export class UserRole {
     default: UserRoleType.USER,
   })
   roles: UserRoleType;
-
   @ManyToOne(() => User, (user) => user.roles)
-  @JoinColumn({ name: 'user_id' })
+  @JoinColumn({ name: 'user_id', referencedColumnName: 'userId' })
   user: User;
 }

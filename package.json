@@ -17,7 +17,10 @@
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
-    "test:e2e": "jest --config ./test/jest-e2e.json"
+    "test:e2e": "jest --config ./test/jest-e2e.json",
+    "migrate": "ts-node src/migration.ts",
+    "db:reset": "ts-node src/reset-db.ts",
+    "db:create-tables": "psql -U %USERNAME% -d %DATABASE% -f create-security-questions-table.sql"
   },
   "dependencies": {
     "@nestjs/axios": "^3.0.3",

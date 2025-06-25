@@ -15,11 +15,10 @@ export class SecurityAuditLog {
 
   @Column({ name: 'event_type' })
   eventType: string;
-
   @Column({ nullable: true })
   reason?: string;
 
-  @Column({ name: 'user_id', nullable: true })
+  @Column({ name: 'user_id', type: 'varchar', length: 255, nullable: true })
   userId?: string;
 
   @Column({ nullable: true })
@@ -39,8 +38,7 @@ export class SecurityAuditLog {
 
   @CreateDateColumn({ name: 'timestamp' })
   timestamp: Date;
-
   @ManyToOne(() => User, { nullable: true })
-  @JoinColumn({ name: 'user_id' })
+  @JoinColumn({ name: 'user_id', referencedColumnName: 'userId' })
   user?: User;
 }

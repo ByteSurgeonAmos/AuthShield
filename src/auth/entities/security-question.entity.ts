@@ -13,14 +13,13 @@ import { User } from './auth.entity';
 export class SecurityQuestion {
   @PrimaryGeneratedColumn('uuid')
   id: string;
-
-  @Column({ name: 'user_id', type: 'varchar' })
+  @Column({ name: 'user_id', type: 'varchar', length: 255 })
   userId: string;
 
-  @Column({ type: 'varchar', length: 500 })
+  @Column({ type: 'varchar', nullable: true, length: 500 })
   question: string;
 
-  @Column({ name: 'answer', type: 'varchar', length: 255 })
+  @Column({ name: 'answer', nullable: true, type: 'varchar', length: 255 })
   answerHash: string;
 
   @Column({ name: 'is_changed', type: 'boolean', default: false })
@@ -31,8 +30,7 @@ export class SecurityQuestion {
 
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
-
-  @ManyToOne(() => User, (user) => user.userId, { onDelete: 'CASCADE' })
-  @JoinColumn({ name: 'user_id' })
+  @ManyToOne(() => User, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'user_id', referencedColumnName: 'userId' })
   user: User;
 }
