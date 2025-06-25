@@ -149,9 +149,8 @@ export class UsersService {
       throw new NotFoundException(`User with ID ${userId} not found`);
     }
   }
-
   async sendVerificationEmail(email: string, token: string) {
-    const transporter = nodemailer.createTransporter({
+    const transporter = nodemailer.createTransport({
       host: 'mail.privateemail.com',
       secure: true,
       port: 465,
@@ -493,13 +492,12 @@ export class UsersService {
 
     return { message: 'Two-factor authentication disabled successfully' };
   }
-
   async sendLoginNotification(user: User, loginDetails: any) {
     if (!user.loginNotificationEmail) {
       return;
     }
 
-    const transporter = nodemailer.createTransporter({
+    const transporter = nodemailer.createTransport({
       host: 'mail.privateemail.com',
       secure: true,
       port: 465,
@@ -622,9 +620,8 @@ export class UsersService {
 
     return { message: `2FA code sent to your ${user.twoFactorMethod}` };
   }
-
   private async send2FAEmail(email: string, code: string) {
-    const transporter = nodemailer.createTransporter({
+    const transporter = nodemailer.createTransport({
       host: 'smtp.privateemail.com',
       secure: true,
       port: 465,
@@ -1007,7 +1004,6 @@ export class UsersService {
 
     const payload = {
       userId: user.userId,
-      id: user.id,
       email: user.email,
       username: user.username,
       roles: userRoles,
@@ -1465,15 +1461,9 @@ export class UsersService {
 
     const userId = uuidv4();
 
-    const lastUser = await this.userRepository
-      .createQueryBuilder('user')
-      .orderBy('user.id', 'DESC')
-      .getOne();
-    const nextId = (lastUser?.id || 0) + 1;
-
     const user = this.userRepository.create({
       userId,
-      id: nextId,
+
       username: randomUsername,
       email: email,
       password: 'SOCIAL_LOGIN',

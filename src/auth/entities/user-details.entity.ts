@@ -11,8 +11,7 @@ import { User } from './auth.entity';
 export class UserDetails {
   @PrimaryGeneratedColumn()
   id: number;
-
-  @Column({ name: 'user_id', type: 'varchar' })
+  @Column({ name: 'user_id', type: 'varchar', length: 255 })
   userId: string;
 
   @Column({ type: 'varchar', nullable: true })
@@ -26,8 +25,7 @@ export class UserDetails {
 
   @Column({ type: 'varchar', nullable: true })
   country: string;
-
   @OneToOne(() => User, (user) => user.details)
-  @JoinColumn({ name: 'user_id' })
+  @JoinColumn({ name: 'user_id', referencedColumnName: 'userId' })
   user: User;
 }

@@ -12,9 +12,8 @@ export class NotificationService {
     private notificationRepository: Repository<AuthNotification>,
     private config: ConfigService,
   ) {}
-
   private async getTransporter() {
-    return nodemailer.createTransporter({
+    return nodemailer.createTransport({
       host: 'mail.privateemail.com',
       secure: true,
       port: 465,

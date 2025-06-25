@@ -40,7 +40,9 @@ import { ApiDocsModule } from './api-docs/api-docs.module';
               AuthNotification,
               SecurityQuestion,
             ],
-            synchronize: true,
+            synchronize:
+              process.env.NODE_ENV === 'development' &&
+              process.env.FORCE_SYNC === 'true',
             ssl: configService.get<string>('SSL') === 'true',
             logging: process.env.NODE_ENV === 'development',
           };
@@ -64,7 +66,9 @@ import { ApiDocsModule } from './api-docs/api-docs.module';
             AuthNotification,
             SecurityQuestion,
           ],
-          synchronize: true,
+          synchronize:
+            process.env.NODE_ENV === 'development' &&
+            process.env.FORCE_SYNC === 'true',
           ssl: configService.get<string>('SSL') === 'true',
           logging: process.env.NODE_ENV === 'development',
         };

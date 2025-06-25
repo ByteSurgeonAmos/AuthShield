@@ -1,8 +1,28 @@
 import { Controller, Get } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 
+@ApiTags('Documentation')
 @Controller('api-docs')
 export class ApiDocsController {
   @Get()
+  @ApiOperation({
+    summary: 'Get API documentation',
+    description: 'Retrieve comprehensive API documentation and usage guide',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'API documentation object',
+    schema: {
+      type: 'object',
+      properties: {
+        title: { type: 'string' },
+        version: { type: 'string' },
+        description: { type: 'string' },
+        baseUrl: { type: 'string' },
+        endpoints: { type: 'object' },
+      },
+    },
+  })
   getApiDocumentation() {
     return {
       title: 'User Management Microservice API',
@@ -277,6 +297,23 @@ export class ApiDocsController {
   }
 
   @Get('postman')
+  @ApiOperation({
+    summary: 'Get Postman collection',
+    description: 'Retrieve Postman collection configuration for API testing',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Postman collection configuration',
+    schema: {
+      type: 'object',
+      properties: {
+        info: { type: 'object' },
+        baseUrl: { type: 'string' },
+        auth: { type: 'object' },
+        variables: { type: 'array' },
+      },
+    },
+  })
   getPostmanCollection() {
     return {
       info: {
