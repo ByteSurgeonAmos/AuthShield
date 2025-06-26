@@ -162,39 +162,81 @@ export class UsersService {
 
     const verificationLink = `${this.config.get<string>('BASE_URL')}/api/v1/users/verify?token=${token}`;
 
-    try {
-      const templatePath = path.join(
-        __dirname,
-        '..',
-        'templates',
-        'verification-email.html',
-      );
-      const source = fs.readFileSync(templatePath, 'utf-8').toString();
-      const template = handlebars.compile(source);
-      const htmlContent = template({ verificationLink });
+    const templatePath = path.join(
+      __dirname,
+      '..',
+      'templates',
+      'verification-email.html',
+    );
+    const source = fs.readFileSync(templatePath, 'utf-8').toString();
+    const template = handlebars.compile(source);
+    const htmlContent = template({ verificationLink });
 
-      await transporter.sendMail({
-        from: this.config.get<string>('NOTIFICATIONS_EMAIL'),
-        to: email,
-        subject: 'Verify Your Email - xmobit',
-        html: htmlContent,
-        attachments: [
-          {
-            filename: 'logo.svg',
-            path: path.join(__dirname, '..', 'assets', 'logo.svg'),
-            cid: 'logo',
-          },
-        ],
-      });
-    } catch (error) {
-      console.error('Failed to send verification email:', error);
-      await transporter.sendMail({
-        from: this.config.get<string>('NOTIFICATIONS_EMAIL'),
-        to: email,
-        subject: 'Verify Your Email - xmobit',
-        text: `Please verify your email by clicking this link: ${verificationLink}`,
-      });
-    }
+    await transporter.sendMail({
+      from: this.config.get<string>('NOTIFICATIONS_EMAIL'),
+      to: email,
+      subject: 'Verify Your Email - XMobit',
+      html: htmlContent,
+    });
+  }
+  async sendWelcomeEmail(email: string, username: string) {
+    const transporter = nodemailer.createTransport({
+      host: 'mail.privateemail.com',
+      secure: true,
+      port: 465,
+      auth: {
+        user: this.config.get<string>('NOTIFICATIONS_EMAIL'),
+        pass: this.config.get<string>('EMAIL_PASS'),
+      },
+    });
+
+    const templatePath = path.join(
+      __dirname,
+      '..',
+      'templates',
+      'welcome-email.html',
+    );
+    const source = fs.readFileSync(templatePath, 'utf-8').toString();
+    const template = handlebars.compile(source);
+    const htmlContent = template({ username });
+
+    await transporter.sendMail({
+      from: this.config.get<string>('NOTIFICATIONS_EMAIL'),
+      to: email,
+      subject: "Welcome to XMobit - Let's Get Started!",
+      html: htmlContent,
+    });
+  }
+  async sendPasswordResetEmail(email: string, resetToken: string) {
+    const transporter = nodemailer.createTransport({
+      host: 'mail.privateemail.com',
+      secure: true,
+      port: 465,
+      auth: {
+        user: this.config.get<string>('NOTIFICATIONS_EMAIL'),
+        pass: this.config.get<string>('EMAIL_PASS'),
+      },
+    });
+
+    const templatePath = path.join(
+      __dirname,
+      '..',
+      'templates',
+      'password-reset.html',
+    );
+    const source = fs.readFileSync(templatePath, 'utf-8').toString();
+    const template = handlebars.compile(source);
+    const htmlContent = template({
+      baseURL: this.config.get<string>('BASE_URL'),
+      token: resetToken,
+    });
+
+    await transporter.sendMail({
+      from: this.config.get<string>('NOTIFICATIONS_EMAIL'),
+      to: email,
+      subject: 'Reset Your Password - XMobit',
+      html: htmlContent,
+    });
   }
   async create(createUserDto: CreateUserDto) {
     const existingUser = await this.userRepository.findOne({
@@ -326,8 +368,10 @@ export class UsersService {
     user.isVerified = true;
     user.emailVerificationToken = null;
     user.emailVerificationExpires = null;
-
     await this.userRepository.save(user);
+
+    // Send welcome email after successful verification
+    await this.sendWelcomeEmail(user.email, user.username);
 
     return { message: 'Email verified successfully' };
   }
@@ -492,11 +536,11 @@ export class UsersService {
 
     return { message: 'Two-factor authentication disabled successfully' };
   }
+  // Login notification email
   async sendLoginNotification(user: User, loginDetails: any) {
     if (!user.loginNotificationEmail) {
-      return;
+      return; // User has disabled login notifications
     }
-
     const transporter = nodemailer.createTransport({
       host: 'mail.privateemail.com',
       secure: true,
@@ -507,28 +551,29 @@ export class UsersService {
       },
     });
 
-    const emailContent = `
-      <h2>New Login Detected</h2>
-      <p>Hello ${user.username},</p>
-      <p>We detected a new login to your account:</p>
-      <ul>
-        <li><strong>Time:</strong> ${new Date().toLocaleString()}</li>
-        <li><strong>IP Address:</strong> ${loginDetails.ip || 'Unknown'}</li>
-        <li><strong>Device:</strong> ${loginDetails.userAgent || 'Unknown'}</li>
-      </ul>
-      <p>If this wasn't you, please change your password immediately and contact support.</p>
-    `;
+    const templatePath = path.join(
+      __dirname,
+      '..',
+      'templates',
+      'login-notification.html',
+    );
+    const source = fs.readFileSync(templatePath, 'utf-8').toString();
+    const template = handlebars.compile(source);
 
-    try {
-      await transporter.sendMail({
-        from: this.config.get<string>('NOTIFICATIONS_EMAIL'),
-        to: user.email,
-        subject: 'New Login Detected - xmobit',
-        html: emailContent,
-      });
-    } catch (error) {
-      console.error('Failed to send login notification:', error);
-    }
+    const htmlContent = template({
+      username: user.username,
+      loginTime: new Date().toLocaleString(),
+      ipAddress: loginDetails.ip || 'Unknown',
+      device: loginDetails.userAgent || 'Unknown',
+      location: 'Unknown', // You could integrate with a GeoIP service to get actual location
+    });
+
+    await transporter.sendMail({
+      from: this.config.get<string>('NOTIFICATIONS_EMAIL'),
+      to: user.email,
+      subject: 'New Login Detected - XMobit',
+      html: htmlContent,
+    });
   }
 
   async setup2FA(userId: string, method: TwoFactorMethod): Promise<any> {
@@ -630,16 +675,21 @@ export class UsersService {
         pass: this.config.get<string>('EMAIL_PASS'),
       },
     });
+    const templatePath = path.join(
+      __dirname,
+      '..',
+      'templates',
+      '2fa-code.html',
+    );
+    const source = fs.readFileSync(templatePath, 'utf-8').toString();
+    const template = handlebars.compile(source);
+    const htmlContent = template({ verificationCode: code });
 
     await transporter.sendMail({
       from: this.config.get<string>('NOTIFICATIONS_EMAIL'),
       to: email,
-      subject: 'Your 2FA Verification Code',
-      html: `
-        <h2>2FA Verification Code</h2>
-        <p>Your verification code is: <strong>${code}</strong></p>
-        <p>This code will expire in 10 minutes.</p>
-      `,
+      subject: 'Your 2FA Verification Code - XMobit',
+      html: htmlContent,
     });
   }
 
