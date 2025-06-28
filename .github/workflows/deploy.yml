@@ -40,7 +40,7 @@ jobs:
       
     - name: Build for Production
       if: github.ref == 'refs/heads/main' || github.event.inputs.branch == 'main'
-      run: npm run build:prod
+      run: npm run build
       
     - name: Copy files to staging server
       if: github.ref == 'refs/heads/Staging' || github.event.inputs.branch == 'Staging'
