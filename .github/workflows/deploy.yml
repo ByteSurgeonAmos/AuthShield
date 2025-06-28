@@ -64,7 +64,6 @@ jobs:
         key: ${{ secrets.STAGING_SSH_PRIVATE_KEY }}
         port: 22
         script: |
-          cd ${{ secrets.STAGING_REMOTE_DIR }}
           bash ${{ secrets.STAGING_DEPLOY_SCRIPT }}
           
     - name: Copy files to production server
@@ -89,7 +88,6 @@ jobs:
         key: ${{ secrets.PROD_SSH_PRIVATE_KEY }}
         port: 22
         script: |
-          cd ${{ secrets.PROD_REMOTE_DIR }}
           bash ${{ secrets.PROD_DEPLOY_SCRIPT }}
 
  
