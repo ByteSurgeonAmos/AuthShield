@@ -4,7 +4,8 @@ import {
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
-import { CreateUserDto } from './dto/create-user.dto';
+import { SimpleRegisterDto } from './dto/simple-register.dto';
+import { CompleteProfileDto } from './dto/complete-profile.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { Repository } from 'typeorm';
 import { User } from './entities/auth.entity';
@@ -238,21 +239,13 @@ export class UsersService {
       html: htmlContent,
     });
   }
-  async create(createUserDto: CreateUserDto) {
+  async create(createUserDto: SimpleRegisterDto) {
     const existingUser = await this.userRepository.findOne({
-      where: [
-        { email: createUserDto.email },
-        { username: createUserDto.username },
-      ],
+      where: { email: createUserDto.email },
     });
 
     if (existingUser) {
-      if (existingUser.email === createUserDto.email) {
-        throw new BadRequestException('Email already exists');
-      }
-      if (existingUser.username === createUserDto.username) {
-        throw new BadRequestException('Username already exists');
-      }
+      throw new BadRequestException('Email already exists');
     }
 
     const hashedPassword = await bcrypt.hash(createUserDto.password, 12);
@@ -263,30 +256,18 @@ export class UsersService {
 
     const userId = uuidv4();
 
-    let finalUsername = createUserDto.username;
-    if (!finalUsername) {
-      finalUsername = await ensureUniqueUsername(this.userRepository);
-    }
-
-    const profileImageUrl = generateRandomProfileImage(finalUsername);
-
-    // const lastUser = await this.userRepository
-    //   .createQueryBuilder('user')
-    //   .orderBy('user.id', 'DESC')
-    //   .getOne();
-    // const nextId = (lastUser?.id || 0) + 1;
+    const tempUsername = await ensureUniqueUsername(this.userRepository);
 
     const user = this.userRepository.create({
       userId,
-      username: finalUsername,
+      username: tempUsername,
       email: createUserDto.email,
       password: hashedPassword,
-      phoneNumber: createUserDto.phoneNumber,
       emailVerificationToken,
       emailVerificationExpires: tokenExpiry,
       dateRegistrated: new Date().toISOString(),
       authProvider: 'local',
-      countryCode: createUserDto.countryCode,
+      usernameChanged: false,
     });
 
     const savedUser = await this.userRepository.save(user);
@@ -297,26 +278,93 @@ export class UsersService {
     });
     await this.roleRepository.save(userRole);
 
-    if (createUserDto.fullname || createUserDto.country) {
-      const userDetails = this.detailsRepository.create({
-        userId: savedUser.userId,
-        fullname: createUserDto.fullname,
-        country: createUserDto.country,
-      });
-      await this.detailsRepository.save(userDetails);
-    }
+    const userDetails = this.detailsRepository.create({
+      userId: savedUser.userId,
+      fullname: createUserDto.fullname,
+    });
+    await this.detailsRepository.save(userDetails);
 
     await this.sendVerificationEmail(
       savedUser.email,
       savedUser.emailVerificationToken,
     );
+
     return {
       userId: savedUser.userId,
-      username: savedUser.username,
       email: savedUser.email,
-      profileImage: profileImageUrl,
+      fullname: createUserDto.fullname,
+      tempUsername: tempUsername,
       message:
-        'User created successfully. Please check your email for verification.',
+        'Account created successfully. Please check your email for verification.',
+      profileComplete: false,
+    };
+  }
+  async completeProfile(
+    userId: string,
+    completeProfileDto: CompleteProfileDto,
+  ) {
+    const user = await this.findOne(userId);
+
+    if (completeProfileDto.username) {
+      const existingUser = await this.userRepository.findOne({
+        where: { username: completeProfileDto.username },
+      });
+
+      if (existingUser && existingUser.userId !== userId) {
+        throw new BadRequestException('Username already exists');
+      }
+
+      user.username = completeProfileDto.username;
+      user.usernameChanged = true;
+    }
+
+    if (completeProfileDto.phoneNumber) {
+      user.phoneNumber = completeProfileDto.phoneNumber;
+    }
+
+    if (completeProfileDto.countryCode) {
+      user.countryCode = completeProfileDto.countryCode;
+    }
+
+    await this.userRepository.save(user);
+
+    if (completeProfileDto.country || completeProfileDto.userBio) {
+      if (!user.details) {
+        const details = this.detailsRepository.create({
+          userId: user.userId,
+          country: completeProfileDto.country,
+          userBio: completeProfileDto.userBio,
+        });
+        await this.detailsRepository.save(details);
+      } else {
+        if (completeProfileDto.country) {
+          user.details.country = completeProfileDto.country;
+        }
+        if (completeProfileDto.userBio) {
+          user.details.userBio = completeProfileDto.userBio;
+        }
+        await this.detailsRepository.save(user.details);
+      }
+    }
+
+    const profileImageUrl = generateRandomProfileImage(user.username);
+
+    await this.securityAuditService.recordSecurityEvent({
+      eventType: 'PROFILE_COMPLETED',
+      userId: userId,
+      email: user.email,
+      additionalData: {
+        username: completeProfileDto.username,
+      },
+    });
+
+    return {
+      userId: user.userId,
+      username: user.username,
+      email: user.email,
+      profileImage: profileImageUrl,
+      message: 'Profile completed successfully',
+      profileComplete: true,
     };
   }
 
@@ -370,7 +418,6 @@ export class UsersService {
     user.emailVerificationExpires = null;
     await this.userRepository.save(user);
 
-    // Send welcome email after successful verification
     await this.sendWelcomeEmail(user.email, user.username);
 
     return { message: 'Email verified successfully' };

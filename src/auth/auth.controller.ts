@@ -22,7 +22,8 @@ import {
   ApiBody,
 } from '@nestjs/swagger';
 import { UsersService } from './auth.service';
-import { CreateUserDto } from './dto/create-user.dto';
+import { SimpleRegisterDto } from './dto/simple-register.dto';
+import { CompleteProfileDto } from './dto/complete-profile.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { LoginUserDto } from './dto/login-user.dto';
 import { Setup2FADto, Verify2FADto, Disable2FADto } from './dto/setup-2fa.dto';
@@ -36,6 +37,7 @@ import {
 import {
   LoginResponseDto,
   RegisterResponseDto,
+  ProfileCompleteResponseDto,
   Setup2FAResponseDto,
   MessageResponseDto,
   BooleanResponseDto,
@@ -76,8 +78,60 @@ export class UsersController {
     status: 409,
     description: 'Conflict - User already exists',
   })
-  async create(@Body() createUserDto: CreateUserDto) {
+  @Post('register')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({
+    summary: 'Register a new user',
+    description:
+      'Create a new user account with email, password, and full name only',
+  })
+  @ApiResponse({
+    status: 201,
+    description: 'User registered successfully',
+    type: RegisterResponseDto,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Bad request - Invalid input data',
+  })
+  @ApiResponse({
+    status: 409,
+    description: 'Conflict - Email already exists',
+  })
+  async create(@Body() createUserDto: SimpleRegisterDto) {
     return this.usersService.create(createUserDto);
+  }
+
+  @Patch('complete-profile')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Complete user profile',
+    description:
+      'Complete user profile with username and other optional details',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Profile completed successfully',
+    type: ProfileCompleteResponseDto,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Bad request - Username already exists',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized - Invalid or missing token',
+  })
+  async completeProfile(
+    @Request() req,
+    @Body() completeProfileDto: CompleteProfileDto,
+  ) {
+    return this.usersService.completeProfile(
+      req.user.userId,
+      completeProfileDto,
+    );
   }
 
   @Post('login')

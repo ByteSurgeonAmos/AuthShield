@@ -20,6 +20,7 @@ import { Setup2FADto, Verify2FADto, Disable2FADto } from './dto/setup-2fa.dto';
 import { AnalyticsQueryDto } from './dto/analytics.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { JwtAdminGuard } from './guards/jwt-admin.guard';
+import { SimpleRegisterDto } from './dto/simple-register.dto';
 
 @Controller('users')
 export class UsersController {
@@ -29,7 +30,7 @@ export class UsersController {
 
   @Post('register')
   @HttpCode(HttpStatus.CREATED)
-  async create(@Body() createUserDto: CreateUserDto) {
+  async create(@Body() createUserDto: SimpleRegisterDto) {
     return this.usersService.create(createUserDto);
   }
 
