@@ -4,7 +4,8 @@ import {
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
-import { CreateUserDto } from './dto/create-user.dto';
+import { SimpleRegisterDto } from './dto/simple-register.dto';
+import { CompleteProfileDto } from './dto/complete-profile.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { Repository } from 'typeorm';
 import { User } from './entities/auth.entity';
@@ -85,6 +86,7 @@ export class UsersService {
     });
     return user;
   }
+
   async update(userId: string, updateUserDto: UpdateUserDto) {
     const user = await this.findOne(userId);
 
@@ -242,21 +244,13 @@ export class UsersService {
     });
   }
 
-  async create(createUserDto: CreateUserDto) {
+  async create(createUserDto: SimpleRegisterDto) {
     const existingUser = await this.userRepository.findOne({
-      where: [
-        { email: createUserDto.email },
-        { username: createUserDto.username },
-      ],
+      where: { email: createUserDto.email },
     });
 
     if (existingUser) {
-      if (existingUser.email === createUserDto.email) {
-        throw new BadRequestException('Email already exists');
-      }
-      if (existingUser.username === createUserDto.username) {
-        throw new BadRequestException('Username already exists');
-      }
+      throw new BadRequestException('Email already exists');
     }
 
     const hashedPassword = await bcrypt.hash(createUserDto.password, 12);
@@ -267,32 +261,25 @@ export class UsersService {
 
     const userId = uuidv4();
 
-    await this.triggerWalletCreation(userId)
+    const walletCreationResults = await this.triggerWalletCreation(createUserDto.email, userId);
 
-    let finalUsername = createUserDto.username;
-    if (!finalUsername) {
-      finalUsername = await ensureUniqueUsername(this.userRepository);
+    const failedWallets = walletCreationResults.filter(result => !result.success);
+    if (failedWallets.length > 0) {
+      throw new BadRequestException(`Wallet creation trigger failed: ${failedWallets.map(w => w.name).join(', ')}`);
     }
 
-    const profileImageUrl = generateRandomProfileImage(finalUsername);
-
-    // const lastUser = await this.userRepository
-    //   .createQueryBuilder('user')
-    //   .orderBy('user.id', 'DESC')
-    //   .getOne();
-    // const nextId = (lastUser?.id || 0) + 1;
+    const tempUsername = await ensureUniqueUsername(this.userRepository);
 
     const user = this.userRepository.create({
       userId,
-      username: finalUsername,
+      username: tempUsername,
       email: createUserDto.email,
       password: hashedPassword,
-      phoneNumber: createUserDto.phoneNumber,
       emailVerificationToken,
       emailVerificationExpires: tokenExpiry,
       dateRegistrated: new Date().toISOString(),
       authProvider: 'local',
-      countryCode: createUserDto.countryCode,
+      usernameChanged: false,
     });
 
     const savedUser = await this.userRepository.save(user);
@@ -303,26 +290,93 @@ export class UsersService {
     });
     await this.roleRepository.save(userRole);
 
-    if (createUserDto.fullname || createUserDto.country) {
-      const userDetails = this.detailsRepository.create({
-        userId: savedUser.userId,
-        fullname: createUserDto.fullname,
-        country: createUserDto.country,
-      });
-      await this.detailsRepository.save(userDetails);
-    }
+    const userDetails = this.detailsRepository.create({
+      userId: savedUser.userId,
+      fullname: createUserDto.fullname,
+    });
+    await this.detailsRepository.save(userDetails);
 
     await this.sendVerificationEmail(
       savedUser.email,
       savedUser.emailVerificationToken,
     );
+
     return {
       userId: savedUser.userId,
-      username: savedUser.username,
       email: savedUser.email,
-      profileImage: profileImageUrl,
+      fullname: createUserDto.fullname,
+      tempUsername: tempUsername,
       message:
-        'User created successfully. Please check your email for verification.',
+        'Account created successfully. Please check your email for verification.',
+      profileComplete: false,
+    };
+  }
+  async completeProfile(
+    userId: string,
+    completeProfileDto: CompleteProfileDto,
+  ) {
+    const user = await this.findOne(userId);
+
+    if (completeProfileDto.username) {
+      const existingUser = await this.userRepository.findOne({
+        where: { username: completeProfileDto.username },
+      });
+
+      if (existingUser && existingUser.userId !== userId) {
+        throw new BadRequestException('Username already exists');
+      }
+
+      user.username = completeProfileDto.username;
+      user.usernameChanged = true;
+    }
+
+    if (completeProfileDto.phoneNumber) {
+      user.phoneNumber = completeProfileDto.phoneNumber;
+    }
+
+    if (completeProfileDto.countryCode) {
+      user.countryCode = completeProfileDto.countryCode;
+    }
+
+    await this.userRepository.save(user);
+
+    if (completeProfileDto.country || completeProfileDto.userBio) {
+      if (!user.details) {
+        const details = this.detailsRepository.create({
+          userId: user.userId,
+          country: completeProfileDto.country,
+          userBio: completeProfileDto.userBio,
+        });
+        await this.detailsRepository.save(details);
+      } else {
+        if (completeProfileDto.country) {
+          user.details.country = completeProfileDto.country;
+        }
+        if (completeProfileDto.userBio) {
+          user.details.userBio = completeProfileDto.userBio;
+        }
+        await this.detailsRepository.save(user.details);
+      }
+    }
+
+    const profileImageUrl = generateRandomProfileImage(user.username);
+
+    await this.securityAuditService.recordSecurityEvent({
+      eventType: 'PROFILE_COMPLETED',
+      userId: userId,
+      email: user.email,
+      additionalData: {
+        username: completeProfileDto.username,
+      },
+    });
+
+    return {
+      userId: user.userId,
+      username: user.username,
+      email: user.email,
+      profileImage: profileImageUrl,
+      message: 'Profile completed successfully',
+      profileComplete: true,
     };
   }
 
@@ -376,7 +430,6 @@ export class UsersService {
     user.emailVerificationExpires = null;
     await this.userRepository.save(user);
 
-    // Send welcome email after successful verification
     await this.sendWelcomeEmail(user.email, user.username);
 
     return { message: 'Email verified successfully' };
@@ -1712,17 +1765,17 @@ export class UsersService {
   }
 
   //============================= Wallet creation request
-  async retryRequest(url: string, headers: any, maxRetries = 3): Promise<any> {
+  async retryRequest(url: string, headers: any, body: any = {}, maxRetries = 3): Promise<any> {
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
         const response = await firstValueFrom(
-          this.httpService.post(url, {}, {
+          this.httpService.post(url, body, {
             headers,
             timeout: 10000,
           })
         );
 
-        if (response.status === 200) {
+        if (response.status === 200 || response.status === 202) {
           return response.data;
         } else {
           throw new Error(`Unexpected status code: ${response.status}`);
@@ -1749,9 +1802,9 @@ export class UsersService {
   }
 
 
-  async createSingleWallet(name: string, url: string, headers: any) {
+  async createSingleWallet(name: string, url: string, headers: any, body: any = {}) {
     try {
-      const result = await this.retryRequest(url, headers);
+      const result = await this.retryRequest(url, headers, body);
       console.log(`✅ ${name} wallet creation initiated successfully (200 OK)`);
       return { name, success: true, data: result };
     } catch (error: any) {
@@ -1760,7 +1813,7 @@ export class UsersService {
     }
   };
 
-  async triggerWalletCreation(userId: string): Promise<Array<{ name: string, success: boolean, error?: string }>> {
+  async triggerWalletCreation(email: string, userId: string): Promise<Array<{ name: string, success: boolean, error?: string }>> {
     console.log("Starting wallet creation process...");
     const walletPromises: Promise<{ name: string, success: boolean, error?: string }>[] = [];
 
@@ -1800,30 +1853,31 @@ export class UsersService {
       }));
     }
 
-    // Monero Wallet (uncomment when needed)
-    // if (process.env.MONERO_WALLET_API_URL && process.env.MONERO_API_TOKEN) {
-    //   walletPromises.push(
-    //     createSingleWallet(
-    //       'Monero',
-    //       `${process.env.MONERO_WALLET_API_URL}/${userId}`,
-    //       { "X-API-Key": process.env.MONERO_API_TOKEN, "Content-Type": "application/json" }
-    //     )
-    //   );
-    // } else {
-    //   console.error('❌ Monero wallet configuration missing');
-    //   walletPromises.push(Promise.resolve({ 
-    //     name: 'Monero', 
-    //     success: false, 
-    //     error: 'Configuration missing' 
-    //   }));
-    // }
+    if (process.env.MONERO_WALLET_API_URL) {
+      walletPromises.push(
+        this.createSingleWallet(
+          'Monero',
+          `${process.env.MONERO_WALLET_API_URL}`,
+          {"Content-Type": "application/json" },
+          { email, userId }
+        )
 
-    // Wait for all wallet creation attempts to complete
+      );
+    } else {
+      console.error('❌ Monero wallet configuration missing');
+      walletPromises.push(Promise.resolve({
+        name: 'Monero',
+        success: false,
+        error: 'Configuration missing'
+      }));
+    }
+
     try {
       const results = await Promise.all(walletPromises);
       console.log("Wallet creation process initiated successfully.");
       return results;
     } catch (error) {
+      console.log(error)
       console.error("Error in wallet creation process:", error);
       throw error;
     }
