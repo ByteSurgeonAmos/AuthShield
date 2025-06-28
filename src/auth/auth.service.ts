@@ -35,6 +35,7 @@ import {
   ensureUniqueUsername,
 } from 'src/common/username-generator';
 import * as crypto from 'crypto';
+import * as geoip from 'geoip-lite';
 import { SecurityQuestion } from './entities/security-question.entity';
 import {
   SetSecurityQuestionDto,
@@ -140,7 +141,7 @@ export class UsersService {
   }
 
   async remove(userId: string): Promise<void> {
-    const user = await this.findOne(userId);
+    // const user = await this.findOne(userId);
 
     await this.roleRepository.delete({ userId });
     await this.detailsRepository.delete({ userId });
@@ -580,14 +581,47 @@ export class UsersService {
     user.twoFactorSecret = null;
 
     await this.userRepository.save(user);
-
     return { message: 'Two-factor authentication disabled successfully' };
   }
-  // Login notification email
+
+  private getLocationFromIP(ipAddress: string): string {
+    if (
+      !ipAddress ||
+      ipAddress === 'Unknown' ||
+      ipAddress === '::1' ||
+      ipAddress === '127.0.0.1'
+    ) {
+      return 'Unknown Location';
+    }
+
+    try {
+      const geo = geoip.lookup(ipAddress);
+      if (geo) {
+        const city = geo.city || 'Unknown City';
+        const region = geo.region || '';
+        const country = geo.country || 'Unknown Country';
+
+        let location = city;
+        if (region && region !== city) {
+          location += `, ${region}`;
+        }
+        location += `, ${country}`;
+
+        return location;
+      }
+    } catch (error) {
+      console.error('Error getting location from IP:', error);
+    }
+
+    return 'Unknown Location';
+  }
   async sendLoginNotification(user: User, loginDetails: any) {
     if (!user.loginNotificationEmail) {
-      return; // User has disabled login notifications
+      return;
     }
+
+    const location = this.getLocationFromIP(loginDetails.ip);
+
     const transporter = nodemailer.createTransport({
       host: 'mail.privateemail.com',
       secure: true,
@@ -612,7 +646,7 @@ export class UsersService {
       loginTime: new Date().toLocaleString(),
       ipAddress: loginDetails.ip || 'Unknown',
       device: loginDetails.userAgent || 'Unknown',
-      location: 'Unknown', // You could integrate with a GeoIP service to get actual location
+      location: location,
     });
 
     await transporter.sendMail({
