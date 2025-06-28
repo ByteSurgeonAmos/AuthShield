@@ -16,6 +16,7 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { JwtAdminGuard } from './guards/jwt-admin.guard';
 import { SecurityAuditService } from './services/security-audit.service';
 import { NotificationService } from './services/notification.service';
+import { HttpModule } from '@nestjs/axios';
 
 @Module({
   imports: [
@@ -37,6 +38,7 @@ import { NotificationService } from './services/notification.service';
       }),
     }),
     SmsModule,
+    HttpModule
   ],
   controllers: [UsersController],
   providers: [
