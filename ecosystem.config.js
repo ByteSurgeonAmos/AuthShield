@@ -24,7 +24,7 @@ module.exports = {
       },
       env_production: {
         NODE_ENV: "production",
-        PORT: 3002,
+        PORT: 3003,
         DATABASE_URL: "postgresql://datahub-admin:D4t4HubAdmin_7r9KzP2w@165.73.244.226:5432/datahub",
         TEMP_JWT_SECRET: "47411d04278145e15dfc98fc8b177786c27bf3562ebd66d3123a1eda0ebe038e",
         JWT_SECRET: "47411d04278145e15dfc98fc8b177786c27bf3562ebd66d3123a1eda0ebe038e",
