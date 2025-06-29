@@ -28,4 +28,10 @@ export class UserDetails {
   @OneToOne(() => User, (user) => user.details)
   @JoinColumn({ name: 'user_id', referencedColumnName: 'userId' })
   user: User;
+
+  @Column({ name: 'payment_details', type: 'text', nullable: true })
+  paymentDetails: string;
+
+  @Column({ name: 'third_party_provider', type: 'varchar', nullable: true })
+  thirdPartyProvider: string;
 }

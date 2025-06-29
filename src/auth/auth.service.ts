@@ -59,8 +59,8 @@ export class UsersService {
     private smsService: SmsService,
     private securityAuditService: SecurityAuditService,
     private notificationService: NotificationService,
-    private readonly httpService: HttpService
-  ) { }
+    private readonly httpService: HttpService,
+  ) {}
 
   async findAll(): Promise<User[]> {
     const users = await this.userRepository.find({
@@ -155,7 +155,7 @@ export class UsersService {
       throw new NotFoundException(`User with ID ${userId} not found`);
     }
   }
-  async sendVerificationEmail(email: string, token: string) {
+  async sendVerificationEmail(email: string, otp: string) {
     const transporter = nodemailer.createTransport({
       host: 'mail.privateemail.com',
       secure: true,
@@ -166,81 +166,20 @@ export class UsersService {
       },
     });
 
-    const verificationLink = `${this.config.get<string>('BASE_URL')}/api/v1/users/verify?token=${token}`;
-
     const templatePath = path.join(
       __dirname,
       '..',
       'templates',
-      'verification-email.html',
+      'email-verification-otp.html',
     );
     const source = fs.readFileSync(templatePath, 'utf-8').toString();
     const template = handlebars.compile(source);
-    const htmlContent = template({ verificationLink });
+    const htmlContent = template({ verificationCode: otp });
 
     await transporter.sendMail({
       from: this.config.get<string>('NOTIFICATIONS_EMAIL'),
       to: email,
       subject: 'Verify Your Email - XMobit',
-      html: htmlContent,
-    });
-  }
-  async sendWelcomeEmail(email: string, username: string) {
-    const transporter = nodemailer.createTransport({
-      host: 'mail.privateemail.com',
-      secure: true,
-      port: 465,
-      auth: {
-        user: this.config.get<string>('NOTIFICATIONS_EMAIL'),
-        pass: this.config.get<string>('EMAIL_PASS'),
-      },
-    });
-
-    const templatePath = path.join(
-      __dirname,
-      '..',
-      'templates',
-      'welcome-email.html',
-    );
-    const source = fs.readFileSync(templatePath, 'utf-8').toString();
-    const template = handlebars.compile(source);
-    const htmlContent = template({ username });
-
-    await transporter.sendMail({
-      from: this.config.get<string>('NOTIFICATIONS_EMAIL'),
-      to: email,
-      subject: "Welcome to XMobit - Let's Get Started!",
-      html: htmlContent,
-    });
-  }
-  async sendPasswordResetEmail(email: string, resetToken: string) {
-    const transporter = nodemailer.createTransport({
-      host: 'mail.privateemail.com',
-      secure: true,
-      port: 465,
-      auth: {
-        user: this.config.get<string>('NOTIFICATIONS_EMAIL'),
-        pass: this.config.get<string>('EMAIL_PASS'),
-      },
-    });
-
-    const templatePath = path.join(
-      __dirname,
-      '..',
-      'templates',
-      'password-reset.html',
-    );
-    const source = fs.readFileSync(templatePath, 'utf-8').toString();
-    const template = handlebars.compile(source);
-    const htmlContent = template({
-      baseURL: this.config.get<string>('BASE_URL'),
-      token: resetToken,
-    });
-
-    await transporter.sendMail({
-      from: this.config.get<string>('NOTIFICATIONS_EMAIL'),
-      to: email,
-      subject: 'Reset Your Password - XMobit',
       html: htmlContent,
     });
   }
@@ -256,17 +195,28 @@ export class UsersService {
 
     const hashedPassword = await bcrypt.hash(createUserDto.password, 12);
 
-    const emailVerificationToken = randomBytes(32).toString('hex');
-    const tokenExpiry = new Date();
-    tokenExpiry.setHours(tokenExpiry.getHours() + 24);
+    // Generate 6-digit OTP for email verification
+    const emailVerificationOTP = generateOtp(6, {
+      digitsOnly: true,
+      includeSpecialChars: false,
+    });
+    const otpExpiry = new Date();
+    otpExpiry.setMinutes(otpExpiry.getMinutes() + 15);
 
     const userId = uuidv4();
 
-    const walletCreationResults = await this.triggerWalletCreation(createUserDto.email, userId);
+    const walletCreationResults = await this.triggerWalletCreation(
+      createUserDto.email,
+      userId,
+    );
 
-    const failedWallets = walletCreationResults.filter(result => !result.success);
+    const failedWallets = walletCreationResults.filter(
+      (result) => !result.success,
+    );
     if (failedWallets.length > 0) {
-      throw new BadRequestException(`Wallet creation trigger failed: ${failedWallets.map(w => w.name).join(', ')}`);
+      throw new BadRequestException(
+        `Wallet creation trigger failed: ${failedWallets.map((w) => w.name).join(', ')}`,
+      );
     }
 
     const tempUsername = await ensureUniqueUsername(this.userRepository);
@@ -276,8 +226,8 @@ export class UsersService {
       username: tempUsername,
       email: createUserDto.email,
       password: hashedPassword,
-      emailVerificationToken,
-      emailVerificationExpires: tokenExpiry,
+      emailVerificationToken: emailVerificationOTP,
+      emailVerificationExpires: otpExpiry,
       dateRegistrated: new Date().toISOString(),
       authProvider: 'local',
       usernameChanged: false,
@@ -308,7 +258,7 @@ export class UsersService {
       fullname: createUserDto.fullname,
       tempUsername: tempUsername,
       message:
-        'Account created successfully. Please check your email for verification.',
+        'Account created successfully. Please check your email for the verification code.',
       profileComplete: false,
     };
   }
@@ -392,17 +342,27 @@ export class UsersService {
       throw new BadRequestException('Email is already verified');
     }
 
-    const newVerificationToken = randomBytes(32).toString('hex');
-    const tokenExpiry = new Date();
-    tokenExpiry.setHours(tokenExpiry.getHours() + 24);
+    // Generate new 6-digit OTP
+    const newVerificationOTP = generateOtp(6, {
+      digitsOnly: true,
+      includeSpecialChars: false,
+    });
+    const otpExpiry = new Date();
+    otpExpiry.setMinutes(otpExpiry.getMinutes() + 15);
 
-    user.emailVerificationToken = newVerificationToken;
-    user.emailVerificationExpires = tokenExpiry;
+    user.emailVerificationToken = newVerificationOTP;
+    user.emailVerificationExpires = otpExpiry;
 
     await this.userRepository.save(user);
     await this.sendVerificationEmail(user.email, user.emailVerificationToken);
 
-    return { message: 'Verification token resent successfully' };
+    await this.securityAuditService.recordSecurityEvent({
+      eventType: 'EMAIL_VERIFICATION_OTP_RESENT',
+      userId: user.userId,
+      email: user.email,
+    });
+
+    return { message: 'Verification OTP resent successfully' };
   }
 
   async verifyEmail(token: string): Promise<{ message: string }> {
@@ -1069,12 +1029,16 @@ export class UsersService {
         !user.emailVerificationToken ||
         new Date() > user.emailVerificationExpires
       ) {
-        const newVerificationToken = randomBytes(32).toString('hex');
-        const tokenExpiry = new Date();
-        tokenExpiry.setHours(tokenExpiry.getHours() + 24);
+        // Generate new 6-digit OTP
+        const newVerificationOTP = generateOtp(6, {
+          digitsOnly: true,
+          includeSpecialChars: false,
+        });
+        const otpExpiry = new Date();
+        otpExpiry.setMinutes(otpExpiry.getMinutes() + 15);
 
-        user.emailVerificationToken = newVerificationToken;
-        user.emailVerificationExpires = tokenExpiry;
+        user.emailVerificationToken = newVerificationOTP;
+        user.emailVerificationExpires = otpExpiry;
         await this.userRepository.save(user);
       }
 
@@ -1091,7 +1055,7 @@ export class UsersService {
 
       return {
         message:
-          'Email is not verified. A verification email has been sent to your email address.',
+          'Email is not verified. A verification code has been sent to your email address.',
         requiresVerification: true,
         email: user.email,
         statusCode: 401,
@@ -1598,20 +1562,15 @@ export class UsersService {
   ): Promise<User> {
     const randomUsername = await ensureUniqueUsername(this.userRepository);
 
-    const emailVerificationToken = randomBytes(32).toString('hex');
-    const tokenExpiry = new Date();
-    tokenExpiry.setHours(tokenExpiry.getHours() + 24);
-
     const userId = uuidv4();
 
     const user = this.userRepository.create({
       userId,
-
       username: randomUsername,
       email: email,
       password: 'SOCIAL_LOGIN',
-      emailVerificationToken,
-      emailVerificationExpires: tokenExpiry,
+      emailVerificationToken: null,
+      emailVerificationExpires: null,
       dateRegistrated: new Date().toISOString(),
       authProvider: authProvider,
       emailVerified: true,
@@ -1798,15 +1757,23 @@ export class UsersService {
     return { message: 'Security question deleted successfully' };
   }
 
-  //============================= Wallet creation request
-  async retryRequest(url: string, headers: any, body: any = {}, maxRetries = 3): Promise<any> {
+  private generateHmacSignature(data: string, secret: string): string {
+    return crypto.createHmac('sha256', secret).update(data).digest('hex');
+  }
+
+  async retryRequest(
+    url: string,
+    headers: any,
+    body: any = {},
+    maxRetries = 3,
+  ): Promise<any> {
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
         const response = await firstValueFrom(
           this.httpService.post(url, body, {
             headers,
             timeout: 10000,
-          })
+          }),
         );
 
         if (response.status === 200 || response.status === 202) {
@@ -1819,25 +1786,44 @@ export class UsersService {
 
         const status = error?.response?.status;
 
-        // Do not retry for 4xx errors
         if (status >= 400 && status < 500) {
           throw error;
         }
 
         if (attempt === maxRetries) {
-          throw new Error(`Max retries (${maxRetries}) exceeded. Last error: ${error.message}`);
+          throw new Error(
+            `Max retries (${maxRetries}) exceeded. Last error: ${error.message}`,
+          );
         }
 
         const delay = Math.min(1000 * Math.pow(2, attempt - 1), 5000);
         console.log(`Retrying in ${delay}ms...`);
-        await new Promise(resolve => setTimeout(resolve, delay));
+        await new Promise((resolve) => setTimeout(resolve, delay));
       }
     }
   }
 
-
-  async createSingleWallet(name: string, url: string, headers: any, body: any = {}) {
+  async createSingleWallet(
+    name: string,
+    url: string,
+    headers: any,
+    body: any = {},
+  ) {
     try {
+      if (name === 'Monero' && Object.keys(body).length > 0) {
+        const hmacSecret = this.config.get<string>('HMAC_SECRET');
+        if (hmacSecret) {
+          const bodyString = JSON.stringify(body);
+          const signature = this.generateHmacSignature(bodyString, hmacSecret);
+          headers['X-DATA-SIGNATURE'] = signature;
+          console.log(`🔐 Added HMAC signature for ${name} wallet request`);
+        } else {
+          console.warn(
+            `⚠️  HMAC_SECRET not configured for ${name} wallet signing`,
+          );
+        }
+      }
+
       const result = await this.retryRequest(url, headers, body);
       console.log(`✅ ${name} wallet creation initiated successfully (200 OK)`);
       return { name, success: true, data: result };
@@ -1845,11 +1831,18 @@ export class UsersService {
       console.error(`❌ ${name} wallet creation failed:`, error.message);
       return { name, success: false, error: error.message };
     }
-  };
+  }
 
-  async triggerWalletCreation(email: string, userId: string): Promise<Array<{ name: string, success: boolean, error?: string }>> {
-    console.log("Starting wallet creation process...");
-    const walletPromises: Promise<{ name: string, success: boolean, error?: string }>[] = [];
+  async triggerWalletCreation(
+    email: string,
+    userId: string,
+  ): Promise<Array<{ name: string; success: boolean; error?: string }>> {
+    console.log('Starting wallet creation process...');
+    const walletPromises: Promise<{
+      name: string;
+      success: boolean;
+      error?: string;
+    }>[] = [];
 
     // BTC Spot Wallet
     if (process.env.BTC_WALLET_API_URL && process.env.BTC_API_TOKEN) {
@@ -1857,34 +1850,43 @@ export class UsersService {
         this.createSingleWallet(
           'BTC Spot',
           `${process.env.BTC_WALLET_API_URL}/spot/${userId}`,
-          { "X-API-Key": process.env.BTC_API_TOKEN, "Content-Type": "application/json" }
-        )
+          {
+            'X-API-Key': process.env.BTC_API_TOKEN,
+            'Content-Type': 'application/json',
+          },
+        ),
       );
     } else {
       console.error('❌ BTC wallet configuration missing');
-      walletPromises.push(Promise.resolve({
-        name: 'BTC Spot',
-        success: false,
-        error: 'Configuration missing'
-      }));
+      walletPromises.push(
+        Promise.resolve({
+          name: 'BTC Spot',
+          success: false,
+          error: 'Configuration missing',
+        }),
+      );
     }
 
-    // BTC Funding Wallet 
     if (process.env.BTC_WALLET_API_URL && process.env.BTC_API_TOKEN) {
       walletPromises.push(
         this.createSingleWallet(
           'BTC Funding',
           `${process.env.BTC_WALLET_API_URL}/funding/${userId}`,
-          { "X-API-Key": process.env.BTC_API_TOKEN, "Content-Type": "application/json" }
-        )
+          {
+            'X-API-Key': process.env.BTC_API_TOKEN,
+            'Content-Type': 'application/json',
+          },
+        ),
       );
     } else {
       console.error('❌ BTC wallet configuration missing');
-      walletPromises.push(Promise.resolve({
-        name: 'BTC Funding',
-        success: false,
-        error: 'Configuration missing'
-      }));
+      walletPromises.push(
+        Promise.resolve({
+          name: 'BTC Funding',
+          success: false,
+          error: 'Configuration missing',
+        }),
+      );
     }
 
     if (process.env.MONERO_WALLET_API_URL) {
@@ -1892,28 +1894,775 @@ export class UsersService {
         this.createSingleWallet(
           'Monero',
           `${process.env.MONERO_WALLET_API_URL}`,
-          {"Content-Type": "application/json" },
-          { email, userId }
-        )
-
+          {
+            'Content-Type': 'application/json',
+            'X-API-TOKEN': process.env.XMR_API_TOKEN,
+          },
+          { email, userId },
+        ),
       );
     } else {
       console.error('❌ Monero wallet configuration missing');
-      walletPromises.push(Promise.resolve({
-        name: 'Monero',
-        success: false,
-        error: 'Configuration missing'
-      }));
+      walletPromises.push(
+        Promise.resolve({
+          name: 'Monero',
+          success: false,
+          error: 'Configuration missing',
+        }),
+      );
     }
 
     try {
       const results = await Promise.all(walletPromises);
-      console.log("Wallet creation process initiated successfully.");
+      console.log('Wallet creation process initiated successfully.');
       return results;
     } catch (error) {
-      console.log(error)
-      console.error("Error in wallet creation process:", error);
+      console.log(error);
+      console.error('Error in wallet creation process:', error);
       throw error;
     }
-  };
+  }
+
+  async sendEmailVerificationOTP(email: string): Promise<{ message: string }> {
+    const user = await this.findByEmail(email);
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    if (user.emailVerified) {
+      throw new BadRequestException('Email is already verified');
+    }
+
+    const otp = generateOtp(6, {
+      digitsOnly: true,
+      includeSpecialChars: false,
+    });
+
+    const otpExpiry = new Date();
+    otpExpiry.setMinutes(otpExpiry.getMinutes() + 15);
+
+    user.emailVerificationToken = otp;
+    user.emailVerificationExpires = otpExpiry;
+
+    await this.userRepository.save(user);
+    await this.sendVerificationEmail(user.email, otp);
+
+    await this.securityAuditService.recordSecurityEvent({
+      eventType: 'EMAIL_VERIFICATION_OTP_SENT',
+      userId: user.userId,
+      email: user.email,
+    });
+
+    return { message: 'Verification OTP sent successfully to your email' };
+  }
+
+  async verifyEmailOTP(
+    email: string,
+    otp: string,
+  ): Promise<{ message: string }> {
+    const user = await this.userRepository.findOne({
+      where: { email },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    if (user.emailVerified) {
+      throw new BadRequestException('Email is already verified');
+    }
+
+    if (!user.emailVerificationToken || !user.emailVerificationExpires) {
+      throw new BadRequestException(
+        'No verification OTP found. Please request a new one.',
+      );
+    }
+
+    const currentTime = new Date();
+    if (currentTime > user.emailVerificationExpires) {
+      throw new BadRequestException(
+        'Verification OTP has expired. Please request a new one.',
+      );
+    }
+
+    if (user.emailVerificationToken !== otp) {
+      await this.securityAuditService.recordSecurityEvent({
+        eventType: 'EMAIL_VERIFICATION_OTP_FAILED',
+        reason: 'Invalid OTP',
+        userId: user.userId,
+        email: user.email,
+      });
+      throw new BadRequestException('Invalid verification OTP');
+    }
+
+    user.emailVerified = true;
+    user.isVerified = true;
+    user.emailVerificationToken = null;
+    user.emailVerificationExpires = null;
+    await this.userRepository.save(user);
+
+    await this.securityAuditService.recordSecurityEvent({
+      eventType: 'EMAIL_VERIFIED_SUCCESS',
+      userId: user.userId,
+      email: user.email,
+    });
+
+    await this.sendWelcomeEmail(user.email, user.username);
+
+    return { message: 'Email verified successfully' };
+  }
+
+  async verifyTokenValidity(token: string): Promise<{
+    statusCode: number;
+    message: string;
+    user?: any;
+  }> {
+    try {
+      if (!token || !token.startsWith('Bearer ')) {
+        return {
+          statusCode: 401,
+          message: 'Invalid token format',
+        };
+      }
+
+      const actualToken = token.split(' ')[1];
+      const decoded = this.jwtService.verify(actualToken);
+
+      const user = await this.userRepository.findOne({
+        where: { userId: decoded.userId },
+        relations: ['roles', 'details'],
+      });
+
+      if (!user) {
+        return {
+          statusCode: 401,
+          message: 'User not found',
+        };
+      }
+
+      return {
+        statusCode: 200,
+        message: 'Token is valid',
+        user: {
+          userId: user.userId,
+          email: user.email,
+          username: user.username,
+          isAccountActive: user.isAccountActive,
+          isTemporary: decoded.isTemporary || false,
+          roles: user.roles?.map((role) => role.roles) || [],
+        },
+      };
+    } catch (error) {
+      return {
+        statusCode: 401,
+        message: 'Invalid or expired token',
+      };
+    }
+  }
+
+  async sendPhoneOTP(
+    userId: string,
+    phoneNumber: string,
+  ): Promise<{
+    statusCode: number;
+    message: string;
+  }> {
+    try {
+      const user = await this.userRepository.findOne({
+        where: { userId },
+      });
+
+      if (!user) {
+        return {
+          statusCode: 404,
+          message: 'User not found',
+        };
+      }
+
+      const otp = generateOtp();
+      const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+      user.phoneVerificationToken = otp;
+      user.phoneVerificationExpires = expiresAt;
+      await this.userRepository.save(user);
+
+      try {
+        await this.smsService.sendSms(
+          phoneNumber,
+          `Your XMobit verification code is: ${otp}`,
+        );
+      } catch (smsError) {
+        console.error('SMS sending failed:', smsError);
+        return {
+          statusCode: 500,
+          message: 'Failed to send SMS',
+        };
+      }
+
+      await this.securityAuditService.recordSecurityEvent({
+        eventType: 'PHONE_OTP_SENT',
+        userId: user.userId,
+        email: user.email,
+        additionalData: { phoneNumber },
+      });
+
+      return {
+        statusCode: 200,
+        message: 'Phone OTP sent successfully',
+      };
+    } catch (error) {
+      return {
+        statusCode: 500,
+        message: 'Failed to send phone OTP',
+      };
+    }
+  }
+
+  async verifyPhoneOTP(
+    userId: string,
+    phoneNumber: string,
+    otpCode: string,
+  ): Promise<{
+    statusCode: number;
+    message: string;
+  }> {
+    try {
+      const user = await this.userRepository.findOne({
+        where: { userId },
+      });
+
+      if (!user) {
+        return {
+          statusCode: 404,
+          message: 'User not found',
+        };
+      }
+
+      if (!user.phoneVerificationToken || !user.phoneVerificationExpires) {
+        return {
+          statusCode: 400,
+          message: 'No phone verification OTP found. Please request a new one.',
+        };
+      }
+
+      const currentTime = new Date();
+      const otpExpiryTime = new Date(user.phoneVerificationExpires);
+
+      if (currentTime > otpExpiryTime) {
+        return {
+          statusCode: 400,
+          message:
+            'Phone verification OTP has expired. Please request a new one.',
+        };
+      }
+
+      if (user.phoneVerificationToken !== otpCode) {
+        await this.securityAuditService.recordSecurityEvent({
+          eventType: 'PHONE_VERIFICATION_OTP_FAILED',
+          reason: 'Invalid OTP',
+          userId: user.userId,
+          email: user.email,
+          additionalData: { phoneNumber },
+        });
+
+        return {
+          statusCode: 400,
+          message: 'Invalid phone verification OTP',
+        };
+      }
+
+      user.phoneNoVerified = true;
+      user.phoneNumber = phoneNumber;
+      user.phoneVerificationToken = null;
+      user.phoneVerificationExpires = null;
+      await this.userRepository.save(user);
+
+      await this.securityAuditService.recordSecurityEvent({
+        eventType: 'PHONE_VERIFIED_SUCCESS',
+        userId: user.userId,
+        email: user.email,
+        additionalData: { phoneNumber },
+      });
+
+      return {
+        statusCode: 200,
+        message: 'Phone number verified successfully',
+      };
+    } catch (error) {
+      return {
+        statusCode: 500,
+        message: 'Failed to verify phone OTP',
+      };
+    }
+  }
+
+  async requestPasswordReset(email: string): Promise<{
+    statusCode: number;
+    message: string;
+  }> {
+    try {
+      const user = await this.userRepository.findOne({
+        where: { email },
+      });
+
+      if (!user) {
+        return {
+          statusCode: 200,
+          message:
+            'If this email is registered, you will receive a password reset link.',
+        };
+      }
+
+      const resetToken = randomBytes(32).toString('hex');
+      const resetExpires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+
+      user.passwordResetToken = resetToken;
+      user.passwordResetExpires = resetExpires;
+      await this.userRepository.save(user);
+
+      await this.sendPasswordResetEmail(user.email, resetToken);
+
+      await this.securityAuditService.recordSecurityEvent({
+        eventType: 'PASSWORD_RESET_REQUESTED',
+        userId: user.userId,
+        email: user.email,
+      });
+
+      return {
+        statusCode: 200,
+        message: 'Password reset email sent successfully',
+      };
+    } catch (error) {
+      return {
+        statusCode: 500,
+        message: 'Failed to send password reset email',
+      };
+    }
+  }
+
+  async resetPassword(
+    token: string,
+    newPassword: string,
+  ): Promise<{
+    statusCode: number;
+    message: string;
+  }> {
+    try {
+      const user = await this.userRepository.findOne({
+        where: { passwordResetToken: token },
+      });
+
+      if (
+        !user ||
+        !user.passwordResetExpires ||
+        new Date() > user.passwordResetExpires
+      ) {
+        return {
+          statusCode: 400,
+          message: 'Invalid or expired reset token',
+        };
+      }
+
+      const hashedPassword = await bcrypt.hash(newPassword, 12);
+      user.password = hashedPassword;
+      user.passwordResetToken = null;
+      user.passwordResetExpires = null;
+      user.failedLoginAttempts = 0;
+      user.accountLockedUntil = null;
+      await this.userRepository.save(user);
+
+      await this.securityAuditService.recordSecurityEvent({
+        eventType: 'PASSWORD_RESET_SUCCESS',
+        userId: user.userId,
+        email: user.email,
+      });
+
+      return {
+        statusCode: 200,
+        message: 'Password reset successfully',
+      };
+    } catch (error) {
+      return {
+        statusCode: 500,
+        message: 'Failed to reset password',
+      };
+    }
+  }
+
+  async changePassword(
+    userId: string,
+    currentPassword: string,
+    newPassword: string,
+  ): Promise<{
+    statusCode: number;
+    message: string;
+  }> {
+    try {
+      const user = await this.userRepository.findOne({
+        where: { userId },
+      });
+
+      if (!user) {
+        return {
+          statusCode: 404,
+          message: 'User not found',
+        };
+      }
+
+      const isCurrentPasswordValid = await bcrypt.compare(
+        currentPassword,
+        user.password,
+      );
+      if (!isCurrentPasswordValid) {
+        await this.securityAuditService.recordSecurityEvent({
+          eventType: 'PASSWORD_CHANGE_FAILED',
+          reason: 'Incorrect current password',
+          userId: user.userId,
+          email: user.email,
+        });
+
+        return {
+          statusCode: 400,
+          message: 'Current password is incorrect',
+        };
+      }
+
+      const hashedNewPassword = await bcrypt.hash(newPassword, 12);
+      user.password = hashedNewPassword;
+      await this.userRepository.save(user);
+
+      await this.securityAuditService.recordSecurityEvent({
+        eventType: 'PASSWORD_CHANGE_SUCCESS',
+        userId: user.userId,
+        email: user.email,
+      });
+
+      return {
+        statusCode: 200,
+        message: 'Password changed successfully',
+      };
+    } catch (error) {
+      return {
+        statusCode: 500,
+        message: 'Failed to change password',
+      };
+    }
+  }
+
+  async linkThirdPartyAuth(
+    userId: string,
+    provider: string,
+    accessToken: string,
+  ): Promise<{
+    statusCode: number;
+    message: string;
+    data?: any;
+  }> {
+    try {
+      const user = await this.userRepository.findOne({
+        where: { userId },
+        relations: ['details'],
+      });
+
+      if (!user) {
+        return {
+          statusCode: 404,
+          message: 'User not found',
+        };
+      }
+
+      if (!user.details) {
+        user.details = this.detailsRepository.create({
+          userId: user.userId,
+          user: user,
+        });
+      }
+
+      user.details.thirdPartyProvider = provider;
+      await this.detailsRepository.save(user.details);
+
+      await this.securityAuditService.recordSecurityEvent({
+        eventType: 'THIRD_PARTY_AUTH_LINKED',
+        userId: user.userId,
+        email: user.email,
+        additionalData: { provider },
+      });
+
+      return {
+        statusCode: 200,
+        message: `${provider} account linked successfully`,
+        data: { provider },
+      };
+    } catch (error) {
+      return {
+        statusCode: 500,
+        message: 'Failed to link third party account',
+      };
+    }
+  }
+
+  async savePaymentDetails(
+    userId: string,
+    paymentData: any,
+  ): Promise<{
+    statusCode: number;
+    message: string;
+    data?: any;
+  }> {
+    try {
+      const user = await this.userRepository.findOne({
+        where: { userId },
+        relations: ['details'],
+      });
+
+      if (!user) {
+        return {
+          statusCode: 404,
+          message: 'User not found',
+        };
+      }
+
+      if (!user.details) {
+        user.details = this.detailsRepository.create({
+          userId: user.userId,
+          user: user,
+        });
+      }
+
+      user.details.paymentDetails = JSON.stringify(paymentData);
+      await this.detailsRepository.save(user.details);
+
+      await this.securityAuditService.recordSecurityEvent({
+        eventType: 'PAYMENT_DETAILS_SAVED',
+        userId: user.userId,
+        email: user.email,
+      });
+
+      return {
+        statusCode: 200,
+        message: 'Payment details saved successfully',
+      };
+    } catch (error) {
+      return {
+        statusCode: 500,
+        message: 'Failed to save payment details',
+      };
+    }
+  }
+
+  async getPaymentDetails(userId: string): Promise<{
+    statusCode: number;
+    message: string;
+    data?: any;
+  }> {
+    try {
+      const user = await this.userRepository.findOne({
+        where: { userId },
+        relations: ['details'],
+      });
+
+      if (!user) {
+        return {
+          statusCode: 404,
+          message: 'User not found',
+        };
+      }
+
+      const paymentDetails = user.details?.paymentDetails
+        ? JSON.parse(user.details.paymentDetails)
+        : null;
+
+      return {
+        statusCode: 200,
+        message: 'Payment details retrieved successfully',
+        data: paymentDetails,
+      };
+    } catch (error) {
+      return {
+        statusCode: 500,
+        message: 'Failed to retrieve payment details',
+      };
+    }
+  }
+
+  async getSecurityQuestionByEmail(email: string): Promise<{
+    statusCode: number;
+    message?: string;
+    data?: any;
+  }> {
+    try {
+      const user = await this.userRepository.findOne({
+        where: { email },
+      });
+
+      if (!user) {
+        return {
+          statusCode: 404,
+          message: 'User not found',
+        };
+      }
+
+      const securityQuestion = await this.securityQuestionRepository.findOne({
+        where: { userId: user.userId },
+      });
+
+      if (!securityQuestion) {
+        return {
+          statusCode: 404,
+          message: 'No security question found for this user',
+        };
+      }
+
+      return {
+        statusCode: 200,
+        data: {
+          question: securityQuestion.question,
+        },
+      };
+    } catch (error) {
+      return {
+        statusCode: 500,
+        message: 'Failed to retrieve security question',
+      };
+    }
+  }
+
+  async verifySecurityAnswer(
+    email: string,
+    answer: string,
+  ): Promise<{
+    statusCode: number;
+    message: string;
+  }> {
+    try {
+      const user = await this.userRepository.findOne({
+        where: { email },
+      });
+
+      if (!user) {
+        return {
+          statusCode: 404,
+          message: 'User not found',
+        };
+      }
+
+      const securityQuestion = await this.securityQuestionRepository.findOne({
+        where: { userId: user.userId },
+      });
+
+      if (!securityQuestion) {
+        return {
+          statusCode: 404,
+          message: 'No security question found for this user',
+        };
+      }
+
+      const isAnswerCorrect = await bcrypt.compare(
+        answer.toLowerCase().trim(),
+        securityQuestion.answerHash,
+      );
+
+      if (!isAnswerCorrect) {
+        await this.securityAuditService.recordSecurityEvent({
+          eventType: 'SECURITY_QUESTION_FAILED',
+          reason: 'Incorrect answer',
+          userId: user.userId,
+          email: user.email,
+        });
+
+        return {
+          statusCode: 400,
+          message: 'Incorrect security answer',
+        };
+      }
+
+      await this.securityAuditService.recordSecurityEvent({
+        eventType: 'SECURITY_QUESTION_SUCCESS',
+        userId: user.userId,
+        email: user.email,
+      });
+
+      return {
+        statusCode: 200,
+        message: 'Security answer verified successfully',
+      };
+    } catch (error) {
+      return {
+        statusCode: 500,
+        message: 'Failed to verify security answer',
+      };
+    }
+  }
+
+  private async sendPasswordResetEmail(
+    email: string,
+    resetToken: string,
+  ): Promise<void> {
+    const resetUrl = `${this.config.get('FRONTEND_URL')}/reset-password?token=${resetToken}`;
+
+    const transporter = nodemailer.createTransporter({
+      host: this.config.get('SMTP_HOST'),
+      port: parseInt(this.config.get('SMTP_PORT')),
+      secure: this.config.get('SMTP_SECURE') === 'true',
+      auth: {
+        user: this.config.get('SMTP_USER'),
+        pass: this.config.get('SMTP_PASS'),
+      },
+    });
+
+    const templatePath = path.join(
+      __dirname,
+      '../../templates/password-reset.hbs',
+    );
+    const templateContent = fs.readFileSync(templatePath, 'utf8');
+    const template = handlebars.compile(templateContent);
+
+    const html = template({
+      resetUrl,
+      expiryTime: '1 hour',
+    });
+
+    await transporter.sendMail({
+      from: this.config.get('SMTP_FROM'),
+      to: email,
+      subject: 'Password Reset Request',
+      html,
+    });
+  }
+
+  private async sendWelcomeEmail(
+    email: string,
+    username: string,
+  ): Promise<void> {
+    try {
+      const transporter = nodemailer.createTransporter({
+        host: this.config.get('SMTP_HOST'),
+        port: parseInt(this.config.get('SMTP_PORT')),
+        secure: this.config.get('SMTP_SECURE') === 'true',
+        auth: {
+          user: this.config.get('SMTP_USER'),
+          pass: this.config.get('SMTP_PASS'),
+        },
+      });
+
+      const templatePath = path.join(__dirname, '../../templates/welcome.hbs');
+      const templateContent = fs.readFileSync(templatePath, 'utf8');
+      const template = handlebars.compile(templateContent);
+
+      const html = template({
+        username,
+        loginUrl: `${this.config.get('FRONTEND_URL')}/login`,
+      });
+
+      await transporter.sendMail({
+        from: this.config.get('SMTP_FROM'),
+        to: email,
+        subject: 'Welcome to XMobit!',
+        html,
+      });
+    } catch (error) {
+      console.error('Failed to send welcome email:', error);
+    }
+  }
 }

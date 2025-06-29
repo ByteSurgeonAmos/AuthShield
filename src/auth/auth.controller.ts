@@ -28,6 +28,10 @@ import { UpdateUserDto } from './dto/update-user.dto';
 import { LoginUserDto } from './dto/login-user.dto';
 import { Setup2FADto, Verify2FADto, Disable2FADto } from './dto/setup-2fa.dto';
 import { Verify2FALoginDto } from './dto/verify-2fa-login.dto';
+import {
+  SendEmailVerificationOTPDto,
+  VerifyEmailOTPDto,
+} from './dto/verify-email-otp.dto';
 import { AnalyticsQueryDto } from './dto/analytics.dto';
 import {
   SetSecurityQuestionDto,
@@ -194,11 +198,61 @@ export class UsersController {
     );
   }
 
+  @Post('send-verification-otp')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Send email verification OTP',
+    description: 'Send a 6-digit OTP to user email for verification',
+  })
+  @ApiBody({
+    type: SendEmailVerificationOTPDto,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Verification OTP sent successfully',
+    type: MessageResponseDto,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Email already verified or user not found',
+  })
+  async sendVerificationOTP(@Body() sendOtpDto: SendEmailVerificationOTPDto) {
+    return this.usersService.sendEmailVerificationOTP(sendOtpDto.email);
+  }
+
+  @Post('verify-email-otp')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Verify email using OTP',
+    description: 'Verify user email address using 6-digit OTP code',
+  })
+  @ApiBody({
+    type: VerifyEmailOTPDto,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Email verified successfully',
+    type: MessageResponseDto,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid or expired OTP',
+  })
+  async verifyEmailOTP(@Body() verifyOtpDto: VerifyEmailOTPDto) {
+    return this.usersService.verifyEmailOTP(
+      verifyOtpDto.email,
+      verifyOtpDto.otp,
+    );
+  }
+
+  // Keep the old token verification for backward compatibility (deprecated)
   @Post('verify-email')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary: 'Verify email address',
-    description: 'Verify user email address using verification token',
+    summary: 'Verify email address (DEPRECATED)',
+    description:
+      'Legacy email verification using token - use OTP verification instead',
+    deprecated: true,
   })
   @ApiQuery({
     name: 'token',
@@ -220,32 +274,29 @@ export class UsersController {
   @Post('resend-verification')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary: 'Resend email verification',
-    description: 'Resend email verification token to user',
+    summary: 'Resend email verification OTP',
+    description: 'Resend 6-digit OTP code to user email for verification',
   })
   @ApiBody({
-    schema: {
-      type: 'object',
-      properties: {
-        email: {
-          type: 'string',
-          format: 'email',
-          example: 'john.doe@example.com',
-        },
-      },
-    },
+    type: SendEmailVerificationOTPDto,
   })
   @ApiResponse({
     status: 200,
-    description: 'Verification email sent',
+    description: 'Verification OTP sent',
     type: MessageResponseDto,
   })
   @ApiResponse({
     status: 404,
     description: 'User not found',
   })
-  async resendVerificationToken(@Body('email') email: string) {
-    return this.usersService.resendVerificationToken(email);
+  @ApiResponse({
+    status: 400,
+    description: 'Email already verified',
+  })
+  async resendVerificationToken(
+    @Body() sendOtpDto: SendEmailVerificationOTPDto,
+  ) {
+    return this.usersService.resendVerificationToken(sendOtpDto.email);
   }
 
   // =============== 2FA ENDPOINTS ===============
@@ -1757,5 +1808,410 @@ export class UsersController {
   @HttpCode(HttpStatus.OK)
   async deleteSecurityQuestion(@Request() req) {
     return this.usersService.deleteSecurityQuestion(req.user.userId);
+  }
+
+  // =============== TOKEN VERIFICATION ENDPOINT ===============
+
+  @Post('verify-token')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({
+    summary: 'Verify JWT token',
+    description:
+      'Verify the validity of a JWT token and return user information',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Token is valid',
+    type: UserProfileDto,
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Invalid or expired token',
+  })
+  async verifyToken(@Request() req) {
+    const authHeader = req.headers.authorization;
+    return this.usersService.verifyTokenValidity(authHeader);
+  }
+
+  @Post('resend-email-otp')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Resend email verification OTP',
+    description: 'Resend verification OTP to user email',
+  })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        email: {
+          type: 'string',
+          format: 'email',
+          example: 'user@example.com',
+        },
+      },
+      required: ['email'],
+    },
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'OTP sent successfully',
+    type: MessageResponseDto,
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'User not found',
+  })
+  async resendEmailOTP(@Body() body: { email: string }) {
+    return this.usersService.resendVerificationToken(body.email);
+  }
+
+  // =============== PHONE VERIFICATION ENDPOINTS ===============
+
+  @Post('send-phone-otp')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({
+    summary: 'Send phone verification OTP',
+    description: 'Send OTP to user phone number for verification',
+  })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        phoneNumber: {
+          type: 'string',
+          example: '+1234567890',
+        },
+      },
+      required: ['phoneNumber'],
+    },
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Phone OTP sent successfully',
+    type: MessageResponseDto,
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized',
+  })
+  async sendPhoneOTP(@Request() req, @Body() body: { phoneNumber: string }) {
+    return this.usersService.sendPhoneOTP(req.user.userId, body.phoneNumber);
+  }
+
+  @Post('verify-phone-otp')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({
+    summary: 'Verify phone OTP',
+    description: 'Verify phone number using OTP code',
+  })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        phoneNumber: {
+          type: 'string',
+          example: '+1234567890',
+        },
+        otpCode: {
+          type: 'string',
+          example: '123456',
+        },
+      },
+      required: ['phoneNumber', 'otpCode'],
+    },
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Phone verified successfully',
+    type: MessageResponseDto,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid OTP code',
+  })
+  async verifyPhoneOTP(
+    @Request() req,
+    @Body() body: { phoneNumber: string; otpCode: string },
+  ) {
+    return this.usersService.verifyPhoneOTP(
+      req.user.userId,
+      body.phoneNumber,
+      body.otpCode,
+    );
+  }
+
+  // =============== PASSWORD RESET ENDPOINTS ===============
+
+  @Post('request-password-reset')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Request password reset',
+    description: 'Send password reset email to user',
+  })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        email: {
+          type: 'string',
+          format: 'email',
+          example: 'user@example.com',
+        },
+      },
+      required: ['email'],
+    },
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Password reset email sent',
+    type: MessageResponseDto,
+  })
+  async requestPasswordReset(@Body() body: { email: string }) {
+    return this.usersService.requestPasswordReset(body.email);
+  }
+
+  @Post('reset-password')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Reset password',
+    description: 'Reset user password using reset token',
+  })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        token: {
+          type: 'string',
+          example: 'reset-token-here',
+        },
+        newPassword: {
+          type: 'string',
+          minLength: 8,
+          example: 'NewSecurePassword123!',
+        },
+      },
+      required: ['token', 'newPassword'],
+    },
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Password reset successfully',
+    type: MessageResponseDto,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid or expired token',
+  })
+  async resetPassword(@Body() body: { token: string; newPassword: string }) {
+    return this.usersService.resetPassword(body.token, body.newPassword);
+  }
+
+  @Post('change-password')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({
+    summary: 'Change password',
+    description: 'Change user password (requires current password)',
+  })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        currentPassword: {
+          type: 'string',
+          example: 'CurrentPassword123!',
+        },
+        newPassword: {
+          type: 'string',
+          minLength: 8,
+          example: 'NewSecurePassword123!',
+        },
+      },
+      required: ['currentPassword', 'newPassword'],
+    },
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Password changed successfully',
+    type: MessageResponseDto,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Incorrect current password',
+  })
+  async changePassword(
+    @Request() req,
+    @Body() body: { currentPassword: string; newPassword: string },
+  ) {
+    return this.usersService.changePassword(
+      req.user.userId,
+      body.currentPassword,
+      body.newPassword,
+    );
+  }
+
+  // =============== THIRD PARTY AUTH ENDPOINT ===============
+
+  @Post('third-party-auth')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({
+    summary: 'Link third party authentication',
+    description: 'Link third party provider account to user account',
+  })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        provider: {
+          type: 'string',
+          example: 'google',
+        },
+        accessToken: {
+          type: 'string',
+          example: 'third-party-access-token',
+        },
+      },
+      required: ['provider', 'accessToken'],
+    },
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Third party account linked successfully',
+    type: MessageResponseDto,
+  })
+  async linkThirdPartyAuth(
+    @Request() req,
+    @Body() body: { provider: string; accessToken: string },
+  ) {
+    return this.usersService.linkThirdPartyAuth(
+      req.user.userId,
+      body.provider,
+      body.accessToken,
+    );
+  }
+
+  // =============== PAYMENT DETAILS ENDPOINTS ===============
+
+  @Post('payment-details')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({
+    summary: 'Save payment details',
+    description: 'Save user payment details',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Payment details saved successfully',
+    type: MessageResponseDto,
+  })
+  async savePaymentDetails(@Request() req, @Body() paymentData: any) {
+    return this.usersService.savePaymentDetails(req.user.userId, paymentData);
+  }
+
+  @Get('payment-details')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({
+    summary: 'Get payment details',
+    description: 'Retrieve user payment details',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Payment details retrieved successfully',
+  })
+  async getPaymentDetails(@Request() req) {
+    return this.usersService.getPaymentDetails(req.user.userId);
+  }
+
+  // =============== SECURITY QUESTIONS ENDPOINTS ===============
+
+  @Get('security-question')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Get security question by email',
+    description: 'Retrieve security question for password reset flow',
+  })
+  @ApiQuery({
+    name: 'email',
+    description: 'User email address',
+    example: 'user@example.com',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Security question retrieved successfully',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'User or security question not found',
+  })
+  async getSecurityQuestionByEmail(@Query('email') email: string) {
+    return this.usersService.getSecurityQuestionByEmail(email);
+  }
+
+  @Post('verify-security-answer')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Verify security question answer',
+    description: 'Verify security question answer for password reset flow',
+  })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        email: {
+          type: 'string',
+          format: 'email',
+          example: 'user@example.com',
+        },
+        answer: {
+          type: 'string',
+          example: 'Security answer',
+        },
+      },
+      required: ['email', 'answer'],
+    },
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Security answer verified successfully',
+    type: MessageResponseDto,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Incorrect security answer',
+  })
+  async verifySecurityAnswer(@Body() body: { email: string; answer: string }) {
+    return this.usersService.verifySecurityAnswer(body.email, body.answer);
+  }
+
+  // =============== HEALTH CHECK ENDPOINT ===============
+
+  @Get('health')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Health check',
+    description: 'Check if the auth service is running',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Service is healthy',
+  })
+  async healthCheck() {
+    return {
+      status: 'ok',
+      timestamp: new Date().toISOString(),
+      service: 'AuthShield',
+    };
   }
 }
