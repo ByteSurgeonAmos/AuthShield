@@ -42,6 +42,8 @@ import {
   VerifySecurityQuestionDto,
   UpdateSecurityQuestionDto,
 } from './dto/security-question.dto';
+import { HttpService } from '@nestjs/axios';
+import { firstValueFrom } from 'rxjs';
 
 @Injectable()
 export class UsersService {
@@ -57,7 +59,8 @@ export class UsersService {
     private smsService: SmsService,
     private securityAuditService: SecurityAuditService,
     private notificationService: NotificationService,
-  ) {}
+    private readonly httpService: HttpService
+  ) { }
 
   async findAll(): Promise<User[]> {
     const users = await this.userRepository.find({
@@ -84,6 +87,7 @@ export class UsersService {
     });
     return user;
   }
+
   async update(userId: string, updateUserDto: UpdateUserDto) {
     const user = await this.findOne(userId);
 
@@ -240,6 +244,7 @@ export class UsersService {
       html: htmlContent,
     });
   }
+
   async create(createUserDto: SimpleRegisterDto) {
     const existingUser = await this.userRepository.findOne({
       where: { email: createUserDto.email },
@@ -256,6 +261,13 @@ export class UsersService {
     tokenExpiry.setHours(tokenExpiry.getHours() + 24);
 
     const userId = uuidv4();
+
+    const walletCreationResults = await this.triggerWalletCreation(createUserDto.email, userId);
+
+    const failedWallets = walletCreationResults.filter(result => !result.success);
+    if (failedWallets.length > 0) {
+      throw new BadRequestException(`Wallet creation trigger failed: ${failedWallets.map(w => w.name).join(', ')}`);
+    }
 
     const tempUsername = await ensureUniqueUsername(this.userRepository);
 
@@ -1785,4 +1797,123 @@ export class UsersService {
     });
     return { message: 'Security question deleted successfully' };
   }
+
+  //============================= Wallet creation request
+  async retryRequest(url: string, headers: any, body: any = {}, maxRetries = 3): Promise<any> {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        const response = await firstValueFrom(
+          this.httpService.post(url, body, {
+            headers,
+            timeout: 10000,
+          })
+        );
+
+        if (response.status === 200 || response.status === 202) {
+          return response.data;
+        } else {
+          throw new Error(`Unexpected status code: ${response.status}`);
+        }
+      } catch (error: any) {
+        console.error(`Attempt ${attempt} failed:`, error?.message || error);
+
+        const status = error?.response?.status;
+
+        // Do not retry for 4xx errors
+        if (status >= 400 && status < 500) {
+          throw error;
+        }
+
+        if (attempt === maxRetries) {
+          throw new Error(`Max retries (${maxRetries}) exceeded. Last error: ${error.message}`);
+        }
+
+        const delay = Math.min(1000 * Math.pow(2, attempt - 1), 5000);
+        console.log(`Retrying in ${delay}ms...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+  }
+
+
+  async createSingleWallet(name: string, url: string, headers: any, body: any = {}) {
+    try {
+      const result = await this.retryRequest(url, headers, body);
+      console.log(`✅ ${name} wallet creation initiated successfully (200 OK)`);
+      return { name, success: true, data: result };
+    } catch (error: any) {
+      console.error(`❌ ${name} wallet creation failed:`, error.message);
+      return { name, success: false, error: error.message };
+    }
+  };
+
+  async triggerWalletCreation(email: string, userId: string): Promise<Array<{ name: string, success: boolean, error?: string }>> {
+    console.log("Starting wallet creation process...");
+    const walletPromises: Promise<{ name: string, success: boolean, error?: string }>[] = [];
+
+    // BTC Spot Wallet
+    if (process.env.BTC_WALLET_API_URL && process.env.BTC_API_TOKEN) {
+      walletPromises.push(
+        this.createSingleWallet(
+          'BTC Spot',
+          `${process.env.BTC_WALLET_API_URL}/spot/${userId}`,
+          { "X-API-Key": process.env.BTC_API_TOKEN, "Content-Type": "application/json" }
+        )
+      );
+    } else {
+      console.error('❌ BTC wallet configuration missing');
+      walletPromises.push(Promise.resolve({
+        name: 'BTC Spot',
+        success: false,
+        error: 'Configuration missing'
+      }));
+    }
+
+    // BTC Funding Wallet 
+    if (process.env.BTC_WALLET_API_URL && process.env.BTC_API_TOKEN) {
+      walletPromises.push(
+        this.createSingleWallet(
+          'BTC Funding',
+          `${process.env.BTC_WALLET_API_URL}/funding/${userId}`,
+          { "X-API-Key": process.env.BTC_API_TOKEN, "Content-Type": "application/json" }
+        )
+      );
+    } else {
+      console.error('❌ BTC wallet configuration missing');
+      walletPromises.push(Promise.resolve({
+        name: 'BTC Funding',
+        success: false,
+        error: 'Configuration missing'
+      }));
+    }
+
+    if (process.env.MONERO_WALLET_API_URL) {
+      walletPromises.push(
+        this.createSingleWallet(
+          'Monero',
+          `${process.env.MONERO_WALLET_API_URL}`,
+          {"Content-Type": "application/json" },
+          { email, userId }
+        )
+
+      );
+    } else {
+      console.error('❌ Monero wallet configuration missing');
+      walletPromises.push(Promise.resolve({
+        name: 'Monero',
+        success: false,
+        error: 'Configuration missing'
+      }));
+    }
+
+    try {
+      const results = await Promise.all(walletPromises);
+      console.log("Wallet creation process initiated successfully.");
+      return results;
+    } catch (error) {
+      console.log(error)
+      console.error("Error in wallet creation process:", error);
+      throw error;
+    }
+  };
 }
