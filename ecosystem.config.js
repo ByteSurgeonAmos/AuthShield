@@ -31,7 +31,7 @@ module.exports = {
         NOTIFICATIONS_EMAIL: "no.reply@xmobit.com",
         EMAIL_PASS: "tyik2.Cp",
         BASE_URL: "https://staging.xmobit.com",
-        TIARA_API_TOKEN: "eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiI1NzQiLCJvaWQiOjU3NCwidWlkIjoiZmJhNzdmNjEtM2ZkYy00YjFlLWI2MjAtM2I0OGI3MDg1ODhkIiwiYXBpZCI6NTQ4LCJpYXQiOjE3NDc5NDM0NzAsImV4cCI6MjA4Nzk0MzQ3MH0.FrXUlgMu_qjaNVMdtlVn6NYvinLoqkcFuHRGHvq19FF7vv7jeX9y8IQF8wGaOwKSRS5tzsxQv-4i-EbHcwbSQw",
+        TIARA_API_TOKEN: "LCJvaWQiOjU3NCwidWlkIjoiZmJhNzdmNjEtM2ZkYy00YjFlLWI2MjAtM2I0OGI3MDg1ODhkIiwiYXBpZCI6NTQ4LCJpYXQiOjE3NDc5NDM0NzAsImV4cCI6MjA4Nzk0MzQ3MH0.FrXUlgMu_qjaNVMdtlVn6NYvinLoqkcFuHRGHvq19FF7vv7jeX9y8IQF8wGaOwKSRS5tzsxQv-4i-EbHcwbSQw",
         SMS_SENDER_ID: "CONNECT",
         FORCE_SYNC: "true"
       }
