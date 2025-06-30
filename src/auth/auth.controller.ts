@@ -32,6 +32,7 @@ import {
   SendEmailVerificationOTPDto,
   VerifyEmailOTPDto,
 } from './dto/verify-email-otp.dto';
+import { SendPhoneOTPDto, VerifyPhoneOTPDto } from './dto/phone-otp.dto';
 import { AnalyticsQueryDto } from './dto/analytics.dto';
 import {
   SetSecurityQuestionDto,
@@ -63,25 +64,6 @@ export class UsersController {
 
   // =============== AUTHENTICATION ENDPOINTS ===============
 
-  @Post('register')
-  @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({
-    summary: 'Register a new user',
-    description: 'Create a new user account with email verification',
-  })
-  @ApiResponse({
-    status: 201,
-    description: 'User registered successfully',
-    type: RegisterResponseDto,
-  })
-  @ApiResponse({
-    status: 400,
-    description: 'Bad request - Invalid input data',
-  })
-  @ApiResponse({
-    status: 409,
-    description: 'Conflict - User already exists',
-  })
   @Post('register')
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({
@@ -1877,18 +1859,6 @@ export class UsersController {
     summary: 'Send phone verification OTP',
     description: 'Send OTP to user phone number for verification',
   })
-  @ApiBody({
-    schema: {
-      type: 'object',
-      properties: {
-        phoneNumber: {
-          type: 'string',
-          example: '+1234567890',
-        },
-      },
-      required: ['phoneNumber'],
-    },
-  })
   @ApiResponse({
     status: 200,
     description: 'Phone OTP sent successfully',
@@ -1898,8 +1868,12 @@ export class UsersController {
     status: 401,
     description: 'Unauthorized',
   })
-  async sendPhoneOTP(@Request() req, @Body() body: { phoneNumber: string }) {
-    return this.usersService.sendPhoneOTP(req.user.userId, body.phoneNumber);
+  async sendPhoneOTP(@Request() req, @Body() sendPhoneOTPDto: SendPhoneOTPDto) {
+    return this.usersService.sendPhoneOTP(
+      req.user.userId,
+      sendPhoneOTPDto.phoneNumber,
+      sendPhoneOTPDto.countryCode,
+    );
   }
 
   @Post('verify-phone-otp')
@@ -1909,22 +1883,6 @@ export class UsersController {
   @ApiOperation({
     summary: 'Verify phone OTP',
     description: 'Verify phone number using OTP code',
-  })
-  @ApiBody({
-    schema: {
-      type: 'object',
-      properties: {
-        phoneNumber: {
-          type: 'string',
-          example: '+1234567890',
-        },
-        otpCode: {
-          type: 'string',
-          example: '123456',
-        },
-      },
-      required: ['phoneNumber', 'otpCode'],
-    },
   })
   @ApiResponse({
     status: 200,
@@ -1937,12 +1895,13 @@ export class UsersController {
   })
   async verifyPhoneOTP(
     @Request() req,
-    @Body() body: { phoneNumber: string; otpCode: string },
+    @Body() verifyPhoneOTPDto: VerifyPhoneOTPDto,
   ) {
     return this.usersService.verifyPhoneOTP(
       req.user.userId,
-      body.phoneNumber,
-      body.otpCode,
+      verifyPhoneOTPDto.phoneNumber,
+      verifyPhoneOTPDto.otpCode,
+      verifyPhoneOTPDto.countryCode,
     );
   }
 

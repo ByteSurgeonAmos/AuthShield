@@ -43,4 +43,22 @@ export class CompleteProfileDto {
   @IsString()
   @IsOptional()
   userBio?: string;
+
+  @ApiPropertyOptional({
+    description: 'Profile picture URL',
+    example:
+      'https://filemanager.xmobit.com/api/v1/file/server/download/f69cbc37-db62-479b-9e24-9e92ebc9641a.jpg',
+  })
+  @IsString()
+  @IsOptional()
+  profilePicUrl?: string;
+
+  @ApiPropertyOptional({
+    description: 'Image URL (alias for profilePicUrl)',
+    example:
+      'https://filemanager.xmobit.com/api/v1/file/server/download/f69cbc37-db62-479b-9e24-9e92ebc9641a.jpg',
+  })
+  @IsString()
+  @IsOptional()
+  imageUrl?: string;
 }

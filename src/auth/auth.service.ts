@@ -22,6 +22,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as handlebars from 'handlebars';
 import { generateOtp } from 'src/common/generate-otp';
+import { formatPhoneNumber } from 'src/common/phone-utils';
 import { SmsService } from 'src/sms/sms.service';
 import { v4 as uuidv4 } from 'uuid';
 import * as speakeasy from 'speakeasy';
@@ -119,25 +120,37 @@ export class UsersService {
 
     Object.assign(user, updateUserDto);
 
+    const profilePicUrl = updateUserDto.imageUrl || updateUserDto.profilePicUrl;
+
     if (
       updateUserDto.fullname ||
       updateUserDto.country ||
-      updateUserDto.userBio
+      updateUserDto.userBio ||
+      profilePicUrl
     ) {
-      if (!user.details) {
-        const details = this.detailsRepository.create({
+      let userDetails = await this.detailsRepository.findOne({
+        where: { userId: user.userId },
+      });
+
+      if (!userDetails) {
+        userDetails = this.detailsRepository.create({
           userId: user.userId,
           fullname: updateUserDto.fullname,
           country: updateUserDto.country,
           userBio: updateUserDto.userBio,
+          profilePicUrl: profilePicUrl,
         });
-        await this.detailsRepository.save(details);
+        await this.detailsRepository.save(userDetails);
       } else {
-        if (updateUserDto.fullname)
-          user.details.fullname = updateUserDto.fullname;
-        if (updateUserDto.country) user.details.country = updateUserDto.country;
-        if (updateUserDto.userBio) user.details.userBio = updateUserDto.userBio;
-        await this.detailsRepository.save(user.details);
+        if (updateUserDto.fullname !== undefined)
+          userDetails.fullname = updateUserDto.fullname;
+        if (updateUserDto.country !== undefined)
+          userDetails.country = updateUserDto.country;
+        if (updateUserDto.userBio !== undefined)
+          userDetails.userBio = updateUserDto.userBio;
+        if (profilePicUrl !== undefined)
+          userDetails.profilePicUrl = profilePicUrl;
+        await this.detailsRepository.save(userDetails);
       }
     }
 
@@ -291,26 +304,44 @@ export class UsersService {
 
     await this.userRepository.save(user);
 
-    if (completeProfileDto.country || completeProfileDto.userBio) {
-      if (!user.details) {
-        const details = this.detailsRepository.create({
+    // Map imageUrl to profilePicUrl if provided
+    const profilePicUrl =
+      completeProfileDto.imageUrl || completeProfileDto.profilePicUrl;
+
+    if (
+      completeProfileDto.country ||
+      completeProfileDto.userBio ||
+      profilePicUrl
+    ) {
+      // Check if user details exist in the database
+      let userDetails = await this.detailsRepository.findOne({
+        where: { userId: user.userId },
+      });
+
+      if (!userDetails) {
+        // Create new details record
+        userDetails = this.detailsRepository.create({
           userId: user.userId,
           country: completeProfileDto.country,
           userBio: completeProfileDto.userBio,
+          profilePicUrl: profilePicUrl,
         });
-        await this.detailsRepository.save(details);
+        await this.detailsRepository.save(userDetails);
       } else {
-        if (completeProfileDto.country) {
-          user.details.country = completeProfileDto.country;
-        }
-        if (completeProfileDto.userBio) {
-          user.details.userBio = completeProfileDto.userBio;
-        }
-        await this.detailsRepository.save(user.details);
+        // Update existing details
+        if (completeProfileDto.country !== undefined)
+          userDetails.country = completeProfileDto.country;
+        if (completeProfileDto.userBio !== undefined)
+          userDetails.userBio = completeProfileDto.userBio;
+        if (profilePicUrl !== undefined)
+          userDetails.profilePicUrl = profilePicUrl;
+        await this.detailsRepository.save(userDetails);
       }
     }
 
-    const profileImageUrl = generateRandomProfileImage(user.username);
+    // Use the uploaded profile picture URL if provided, otherwise generate a random one
+    const profileImageUrl =
+      profilePicUrl || generateRandomProfileImage(user.username);
 
     await this.securityAuditService.recordSecurityEvent({
       eventType: 'PROFILE_COMPLETED',
@@ -1960,7 +1991,11 @@ export class UsersService {
   async verifyEmailOTP(
     email: string,
     otp: string,
-  ): Promise<{ message: string }> {
+  ): Promise<{
+    message: string;
+    accessToken?: string;
+    user?: any;
+  }> {
     const user = await this.userRepository.findOne({
       where: { email },
     });
@@ -2010,7 +2045,35 @@ export class UsersService {
 
     await this.sendWelcomeEmail(user.email, user.username);
 
-    return { message: 'Email verified successfully' };
+    // Generate JWT token for the verified user
+    const userRoles = user.roles?.map((role) => role.roles) || [
+      UserRoleType.USER,
+    ];
+
+    const payload = {
+      userId: user.userId,
+      email: user.email,
+      username: user.username,
+      roles: userRoles,
+      emailVerified: user.emailVerified,
+      phoneVerified: user.phoneNoVerified,
+    };
+
+    const accessToken = this.jwtService.sign(payload);
+
+    return {
+      message: 'Email verified successfully',
+      accessToken,
+      user: {
+        userId: user.userId,
+        username: user.username,
+        email: user.email,
+        roles: userRoles,
+        emailVerified: user.emailVerified,
+        phoneVerified: user.phoneNoVerified,
+        isAccountActive: user.isAccountActive,
+      },
+    };
   }
 
   async verifyTokenValidity(token: string): Promise<{
@@ -2064,6 +2127,7 @@ export class UsersService {
   async sendPhoneOTP(
     userId: string,
     phoneNumber: string,
+    countryCode: string,
   ): Promise<{
     statusCode: number;
     message: string;
@@ -2080,23 +2144,54 @@ export class UsersService {
         };
       }
 
+      // Format the phone number using provided country code or user's saved country code
+      const phoneResult = formatPhoneNumber(
+        phoneNumber,
+        countryCode,
+        user.countryCode,
+        '254', // default country code
+      );
+
+      if (!phoneResult.isValid) {
+        return {
+          statusCode: 400,
+          message: 'Invalid phone number format',
+        };
+      }
+
       const otp = generateOtp();
       const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
       user.phoneVerificationToken = otp;
       user.phoneVerificationExpires = expiresAt;
+
+      // Update user's country code if a new one was provided
+      if (countryCode && countryCode !== user.countryCode) {
+        user.countryCode = countryCode;
+      }
+
       await this.userRepository.save(user);
 
       try {
         await this.smsService.sendSms(
-          phoneNumber,
+          phoneResult.formatted,
           `Your XMobit verification code is: ${otp}`,
+          phoneResult.countryCode,
         );
       } catch (smsError) {
-        console.error('SMS sending failed:', smsError);
+        console.error('SMS sending failed in auth service:', smsError);
+
+        // Extract more meaningful error message from SMS service
+        let errorMessage = 'Failed to send SMS';
+        if (smsError?.response?.error) {
+          errorMessage = smsError.response.error;
+        } else if (smsError?.message) {
+          errorMessage = smsError.message;
+        }
+
         return {
           statusCode: 500,
-          message: 'Failed to send SMS',
+          message: errorMessage,
         };
       }
 
@@ -2104,7 +2199,10 @@ export class UsersService {
         eventType: 'PHONE_OTP_SENT',
         userId: user.userId,
         email: user.email,
-        additionalData: { phoneNumber },
+        additionalData: {
+          phoneNumber: phoneResult.formatted,
+          countryCode: phoneResult.countryCode,
+        },
       });
 
       return {
@@ -2123,6 +2221,7 @@ export class UsersService {
     userId: string,
     phoneNumber: string,
     otpCode: string,
+    countryCode?: string,
   ): Promise<{
     statusCode: number;
     message: string;
@@ -2172,17 +2271,44 @@ export class UsersService {
         };
       }
 
+      // Format the phone number using provided country code or user's saved country code
+      const phoneResult = formatPhoneNumber(
+        phoneNumber,
+        countryCode,
+        user.countryCode,
+        '254', // default country code
+      );
+
+      if (!phoneResult.isValid) {
+        return {
+          statusCode: 400,
+          message: 'Invalid phone number format',
+        };
+      }
+
       user.phoneNoVerified = true;
-      user.phoneNumber = phoneNumber;
+      user.phoneNumber = phoneResult.formatted;
       user.phoneVerificationToken = null;
       user.phoneVerificationExpires = null;
+
+      // Update country code if provided and different from current
+      if (
+        phoneResult.countryCode &&
+        phoneResult.countryCode !== user.countryCode
+      ) {
+        user.countryCode = phoneResult.countryCode;
+      }
+
       await this.userRepository.save(user);
 
       await this.securityAuditService.recordSecurityEvent({
         eventType: 'PHONE_VERIFIED_SUCCESS',
         userId: user.userId,
         email: user.email,
-        additionalData: { phoneNumber },
+        additionalData: {
+          phoneNumber: phoneResult.formatted,
+          countryCode: phoneResult.countryCode,
+        },
       });
 
       return {
@@ -2372,15 +2498,23 @@ export class UsersService {
         };
       }
 
-      if (!user.details) {
-        user.details = this.detailsRepository.create({
+      // Check if user details exist in the database
+      let userDetails = await this.detailsRepository.findOne({
+        where: { userId: user.userId },
+      });
+
+      if (!userDetails) {
+        // Create new details record
+        userDetails = this.detailsRepository.create({
           userId: user.userId,
-          user: user,
+          thirdPartyProvider: provider,
         });
+      } else {
+        // Update existing details
+        userDetails.thirdPartyProvider = provider;
       }
 
-      user.details.thirdPartyProvider = provider;
-      await this.detailsRepository.save(user.details);
+      await this.detailsRepository.save(userDetails);
 
       await this.securityAuditService.recordSecurityEvent({
         eventType: 'THIRD_PARTY_AUTH_LINKED',
@@ -2423,15 +2557,23 @@ export class UsersService {
         };
       }
 
-      if (!user.details) {
-        user.details = this.detailsRepository.create({
+      // Check if user details exist in the database
+      let userDetails = await this.detailsRepository.findOne({
+        where: { userId: user.userId },
+      });
+
+      if (!userDetails) {
+        // Create new details record
+        userDetails = this.detailsRepository.create({
           userId: user.userId,
-          user: user,
+          paymentDetails: JSON.stringify(paymentData),
         });
+      } else {
+        // Update existing details
+        userDetails.paymentDetails = JSON.stringify(paymentData);
       }
 
-      user.details.paymentDetails = JSON.stringify(paymentData);
-      await this.detailsRepository.save(user.details);
+      await this.detailsRepository.save(userDetails);
 
       await this.securityAuditService.recordSecurityEvent({
         eventType: 'PAYMENT_DETAILS_SAVED',
@@ -2601,30 +2743,28 @@ export class UsersService {
   ): Promise<void> {
     const resetUrl = `${this.config.get('FRONTEND_URL')}/reset-password?token=${resetToken}`;
 
-    const transporter = nodemailer.createTransporter({
-      host: this.config.get('SMTP_HOST'),
-      port: parseInt(this.config.get('SMTP_PORT')),
-      secure: this.config.get('SMTP_SECURE') === 'true',
+    const transporter = nodemailer.createTransport({
+      host: 'mail.privateemail.com',
+      secure: true,
+      port: 465,
       auth: {
-        user: this.config.get('SMTP_USER'),
-        pass: this.config.get('SMTP_PASS'),
+        user: this.config.get<string>('NOTIFICATIONS_EMAIL'),
+        pass: this.config.get<string>('EMAIL_PASS'),
       },
     });
 
     const templatePath = path.join(
       __dirname,
-      '../../templates/password-reset.hbs',
+      '../templates/password-reset.html',
     );
     const templateContent = fs.readFileSync(templatePath, 'utf8');
-    const template = handlebars.compile(templateContent);
 
-    const html = template({
-      resetUrl,
-      expiryTime: '1 hour',
-    });
+    const html = templateContent
+      .replace(/{{resetUrl}}/g, resetUrl)
+      .replace(/{{expiryTime}}/g, '1 hour');
 
     await transporter.sendMail({
-      from: this.config.get('SMTP_FROM'),
+      from: this.config.get<string>('NOTIFICATIONS_EMAIL'),
       to: email,
       subject: 'Password Reset Request',
       html,
@@ -2636,27 +2776,26 @@ export class UsersService {
     username: string,
   ): Promise<void> {
     try {
-      const transporter = nodemailer.createTransporter({
-        host: this.config.get('SMTP_HOST'),
-        port: parseInt(this.config.get('SMTP_PORT')),
-        secure: this.config.get('SMTP_SECURE') === 'true',
+      const transporter = nodemailer.createTransport({
+        host: 'mail.privateemail.com',
+        secure: true,
+        port: 465,
         auth: {
-          user: this.config.get('SMTP_USER'),
-          pass: this.config.get('SMTP_PASS'),
+          user: this.config.get<string>('NOTIFICATIONS_EMAIL'),
+          pass: this.config.get<string>('EMAIL_PASS'),
         },
       });
 
-      const templatePath = path.join(__dirname, '../../templates/welcome.hbs');
+      const templatePath = path.join(
+        __dirname,
+        '../templates/welcome-email.html',
+      );
       const templateContent = fs.readFileSync(templatePath, 'utf8');
-      const template = handlebars.compile(templateContent);
 
-      const html = template({
-        username,
-        loginUrl: `${this.config.get('FRONTEND_URL')}/login`,
-      });
+      const html = templateContent.replace(/{{username}}/g, username);
 
       await transporter.sendMail({
-        from: this.config.get('SMTP_FROM'),
+        from: this.config.get<string>('NOTIFICATIONS_EMAIL'),
         to: email,
         subject: 'Welcome to XMobit!',
         html,
