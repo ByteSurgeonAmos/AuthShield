@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { APP_INTERCEPTOR } from '@nestjs/core';
 import { UsersModule } from './auth/auth.module';
 import { User } from './auth/entities/auth.entity';
 import { UserRole } from './auth/entities/user-role.entity';
@@ -11,6 +12,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { SmsModule } from './sms/sms.module';
 import { HealthModule } from './health/health.module';
 import { ApiDocsModule } from './api-docs/api-docs.module';
+import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 
 @Module({
   imports: [
@@ -80,6 +82,11 @@ import { ApiDocsModule } from './api-docs/api-docs.module';
     ApiDocsModule,
   ],
   controllers: [],
-  providers: [],
+  providers: [
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: LoggingInterceptor,
+    },
+  ],
 })
 export class AppModule {}
