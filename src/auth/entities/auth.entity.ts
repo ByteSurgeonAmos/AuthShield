@@ -151,4 +151,14 @@ export class User {
     (securityQuestion) => securityQuestion.user,
   )
   securityQuestions: SecurityQuestion[];
+
+  @Column({ name: 'phone_verification_token', type: 'varchar', nullable: true })
+  phoneVerificationToken: string;
+
+  @Column({
+    name: 'phone_verification_expires',
+    type: 'timestamp',
+    nullable: true,
+  })
+  phoneVerificationExpires: Date;
 }

@@ -44,7 +44,7 @@ import { ApiDocsModule } from './api-docs/api-docs.module';
               process.env.NODE_ENV === 'development' &&
               process.env.FORCE_SYNC === 'true',
             ssl: configService.get<string>('SSL') === 'true',
-            logging: process.env.NODE_ENV === 'development',
+            logging: false,
           };
         }
         return {
@@ -70,7 +70,7 @@ import { ApiDocsModule } from './api-docs/api-docs.module';
             process.env.NODE_ENV === 'development' &&
             process.env.FORCE_SYNC === 'true',
           ssl: configService.get<string>('SSL') === 'true',
-          logging: process.env.NODE_ENV === 'development',
+          logging: false,
         };
       },
     }),

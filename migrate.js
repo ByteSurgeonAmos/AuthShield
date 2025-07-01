@@ -1,12 +1,13 @@
 const { Client } = require('pg');
 
 const sourceClient = new Client({
-  connectionString: 'postgresql://xmobit:xmobit12345@86.48.1.16:5432/xmobit',
+  connectionString:
+    'postgresql://neondb_owner:npg_MFqY3DUf9AQE@ep-still-queen-a8ke00dw-pooler.eastus2.azure.neon.tech/neondb?sslmode=require&channel_binding=require',
 });
 
 const targetClient = new Client({
   connectionString:
-    'postgresql://neondb_owner:npg_MFqY3DUf9AQE@ep-still-queen-a8ke00dw-pooler.eastus2.azure.neon.tech/neondb?sslmode=require&channel_binding=require',
+    'postgresql://datahub-admin:D4t4HubAdmin_7r9KzP2w@165.73.244.226:5432/datahub',
 });
 
 async function getTables(client) {

@@ -43,6 +43,24 @@ export class UpdateUserDto extends PartialType(CreateUserDto) {
   userBio?: string;
 
   @ApiPropertyOptional({
+    description: 'Updated profile picture URL',
+    example:
+      'https://filemanager.xmobit.com/api/v1/file/server/download/f69cbc37-db62-479b-9e24-9e92ebc9641a.jpg',
+  })
+  @IsOptional()
+  @IsString()
+  profilePicUrl?: string;
+
+  @ApiPropertyOptional({
+    description: 'Updated image URL (alias for profilePicUrl)',
+    example:
+      'https://filemanager.xmobit.com/api/v1/file/server/download/f69cbc37-db62-479b-9e24-9e92ebc9641a.jpg',
+  })
+  @IsOptional()
+  @IsString()
+  imageUrl?: string;
+
+  @ApiPropertyOptional({
     description: 'Updated phone number',
     example: '+1987654321',
   })
