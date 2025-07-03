@@ -32,10 +32,10 @@ export class User {
   @Column({ name: 'phoneNo_verified', type: 'boolean', default: false })
   phoneNoVerified: boolean;
 
-  @Column({ name: 'OtpCode', type: 'varchar', nullable: true })
+  @Column({ name: 'otpcode', type: 'varchar', nullable: true })
   otpCode: string;
 
-  @Column({ name: 'otpExip', type: 'varchar', nullable: true })
+  @Column({ name: 'otpexp', type: 'varchar', nullable: true })
   otpExpiry: string;
 
   @Column({ name: 'isVerified', type: 'boolean', default: false })
@@ -143,7 +143,6 @@ export class User {
   @OneToOne(() => UserDetails, (userDetails) => userDetails.user, {
     eager: true,
   })
-  @JoinColumn({ name: 'userId', referencedColumnName: 'userId' })
   details: UserDetails;
 
   @OneToMany(

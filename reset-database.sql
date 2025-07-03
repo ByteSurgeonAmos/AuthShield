@@ -33,3 +33,10 @@ SET
     user_id = gen_random_uuid () -- or another valid value
 WHERE
     user_id IS NULL;
+
+ALTER TABLE user_account
+DROP COLUMN IF EXISTS phoneno_verified,
+DROP COLUMN IF EXISTS "OtpCode",
+DROP COLUMN IF EXISTS "otpExip",
+DROP COLUMN IF EXISTS is2faenabled,
+DROP COLUMN IF EXISTS isaccountactive;
