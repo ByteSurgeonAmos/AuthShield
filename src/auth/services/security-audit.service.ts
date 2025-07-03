@@ -39,17 +39,6 @@ export class SecurityAuditService {
       });
 
       await this.auditRepository.save(auditLog);
-
-      console.log('Security Event Recorded:', {
-        eventType: eventData.eventType,
-        reason: eventData.reason,
-        userId: eventData.userId,
-        email: eventData.email,
-        ipAddress: eventData.ipAddress,
-        userAgent: eventData.userAgent,
-        timestamp: eventData.timestamp || new Date(),
-        additionalData: eventData.additionalData,
-      });
     } catch (error) {
       console.error('Failed to record security event:', error);
       throw error;

@@ -26,14 +26,9 @@ export class LoggingInterceptor implements NestInterceptor {
     const requestId = Math.random().toString(36).substring(2, 15);
 
     // Log incoming request
-    this.logger.log(`📥 Incoming ${method} ${originalUrl}`, {
-      requestId,
-      method,
-      url: originalUrl,
-      ip,
-      userAgent,
-      timestamp: new Date().toISOString(),
-    });
+    this.logger.log(
+      `📥 ${method} ${originalUrl} | IP: ${ip} | ID: ${requestId}`,
+    );
 
     return next.handle().pipe(
       tap({
@@ -43,17 +38,7 @@ export class LoggingInterceptor implements NestInterceptor {
 
           // Log successful response
           this.logger.log(
-            `📤 Response ${statusCode} ${method} ${originalUrl}`,
-            {
-              requestId,
-              method,
-              url: originalUrl,
-              statusCode,
-              duration: `${duration}ms`,
-              ip,
-              userAgent,
-              timestamp: new Date().toISOString(),
-            },
+            `📤 ${statusCode} ${method} ${originalUrl} | ${duration}ms | ID: ${requestId}`,
           );
         },
         error: (error) => {
@@ -61,18 +46,9 @@ export class LoggingInterceptor implements NestInterceptor {
           const statusCode = error.status || error.statusCode || 500;
 
           // Log error response
-          this.logger.error(`❌ Error ${statusCode} ${method} ${originalUrl}`, {
-            requestId,
-            method,
-            url: originalUrl,
-            statusCode,
-            duration: `${duration}ms`,
-            error: error.message,
-            stack: error.stack,
-            ip,
-            userAgent,
-            timestamp: new Date().toISOString(),
-          });
+          this.logger.error(
+            `❌ ${statusCode} ${method} ${originalUrl} | ${duration}ms | ${error.message} | ID: ${requestId}`,
+          );
         },
       }),
     );
