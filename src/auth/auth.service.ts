@@ -169,32 +169,53 @@ export class UsersService {
     }
   }
   async sendVerificationEmail(email: string, otp: string) {
-    const transporter = nodemailer.createTransport({
-      host: 'mail.privateemail.com',
-      secure: true,
-      port: 465,
-      auth: {
-        user: this.config.get<string>('NOTIFICATIONS_EMAIL'),
-        pass: this.config.get<string>('EMAIL_PASS'),
-      },
-    });
+    try {
+      const emailUser = this.config.get<string>('NOTIFICATIONS_EMAIL');
+      const emailPass = this.config.get<string>('EMAIL_PASS');
 
-    const templatePath = path.join(
-      __dirname,
-      '..',
-      'templates',
-      'email-verification-otp.html',
-    );
-    const source = fs.readFileSync(templatePath, 'utf-8').toString();
-    const template = handlebars.compile(source);
-    const htmlContent = template({ verificationCode: otp });
+      if (!emailUser || !emailPass) {
+        console.error(
+          '❌ Email configuration missing: NOTIFICATIONS_EMAIL or EMAIL_PASS not set',
+        );
+        throw new Error(
+          'Email configuration is missing. Please check your environment variables.',
+        );
+      }
 
-    await transporter.sendMail({
-      from: this.config.get<string>('NOTIFICATIONS_EMAIL'),
-      to: email,
-      subject: 'Verify Your Email - xmobit',
-      html: htmlContent,
-    });
+      console.log(`📧 Sending verification email to: ${email}`);
+
+      const transporter = nodemailer.createTransport({
+        host: 'mail.privateemail.com',
+        secure: true,
+        port: 465,
+        auth: {
+          user: emailUser,
+          pass: emailPass,
+        },
+      });
+
+      const templatePath = path.join(
+        __dirname,
+        '..',
+        'templates',
+        'email-verification-otp.html',
+      );
+      const source = fs.readFileSync(templatePath, 'utf-8').toString();
+      const template = handlebars.compile(source);
+      const htmlContent = template({ verificationCode: otp });
+
+      await transporter.sendMail({
+        from: emailUser,
+        to: email,
+        subject: 'Verify Your Email - xmobit',
+        html: htmlContent,
+      });
+
+      console.log(`✅ Verification email sent successfully to: ${email}`);
+    } catch (error) {
+      console.error('❌ Failed to send verification email:', error.message);
+      throw new Error(`Failed to send verification email: ${error.message}`);
+    }
   }
 
   async create(createUserDto: SimpleRegisterDto) {
@@ -260,10 +281,17 @@ export class UsersService {
     });
     await this.detailsRepository.save(userDetails);
 
-    await this.sendVerificationEmail(
-      savedUser.email,
-      savedUser.emailVerificationToken,
-    );
+    try {
+      await this.sendVerificationEmail(
+        savedUser.email,
+        savedUser.emailVerificationToken,
+      );
+    } catch (emailError) {
+      console.error(
+        '❌ Failed to send verification email during signup:',
+        emailError.message,
+      );
+    }
 
     return {
       userId: savedUser.userId,
