@@ -14,7 +14,7 @@ on:
         type: choice
         options:
           - Staging
-          - main
+          - master
 
 jobs:
   deploy:
@@ -39,7 +39,7 @@ jobs:
       run: npm run build:staging
       
     - name: Build for Production
-      if: github.ref == 'refs/heads/main' || github.event.inputs.branch == 'main'
+      if: github.ref == 'refs/heads/master' || github.event.inputs.branch == 'master'
       run: npm run build
       
     - name: Copy files to staging server
@@ -67,7 +67,7 @@ jobs:
           bash ${{ secrets.STAGING_DEPLOY_SCRIPT }}
           
     - name: Copy files to production server
-      if: github.ref == 'refs/heads/main' || github.event.inputs.branch == 'main'
+      if: github.ref == 'refs/heads/master' || github.event.inputs.branch == 'master'
       uses: appleboy/scp-action@v0.1.7
       with:
         host: ${{ secrets.PROD_REMOTE_HOST }}
@@ -80,7 +80,7 @@ jobs:
         overwrite: true
         
     - name: Run production deploy script
-      if: github.ref == 'refs/heads/main' || github.event.inputs.branch == 'main'
+      if: github.ref == 'refs/heads/master' || github.event.inputs.branch == 'master'
       uses: appleboy/ssh-action@v0.1.7
       with:
         host: ${{ secrets.PROD_REMOTE_HOST }}
