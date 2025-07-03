@@ -1,0 +1,396 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Verify Your Email - XMobit</title>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    </style>
+  </head>
+  <body
+    style="
+      font-family:
+        'Inter',
+        -apple-system,
+        BlinkMacSystemFont,
+        'Segoe UI',
+        Roboto,
+        sans-serif;
+      line-height: 1.6;
+      background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+      margin: 0;
+      padding: 0;
+    "
+  >
+    <!-- Email Container -->
+    <table
+      role="presentation"
+      width="100%"
+      cellspacing="0"
+      cellpadding="0"
+      border="0"
+    >
+      <tr>
+        <td style="padding: 40px 20px">
+          <table
+            role="presentation"
+            style="
+              max-width: 600px;
+              margin: 0 auto;
+              background: #ffffff;
+              border-radius: 16px;
+              box-shadow:
+                0 20px 25px -5px rgba(0, 0, 0, 0.1),
+                0 10px 10px -5px rgba(0, 0, 0, 0.04);
+              overflow: hidden;
+            "
+            cellspacing="0"
+            cellpadding="0"
+            border="0"
+          >
+            <!-- Header with Gradient -->
+            <tr>
+              <td
+                style="
+                  background: linear-gradient(
+                    135deg,
+                    #3b82f6 0%,
+                    #06b6d4 50%,
+                    #10b981 100%
+                  );
+                  padding: 40px 30px 30px;
+                  text-align: center;
+                  position: relative;
+                "
+              >
+                <div
+                  style="
+                    position: absolute;
+                    top: 0;
+                    left: 0;
+                    right: 0;
+                    height: 4px;
+                    background: linear-gradient(
+                      90deg,
+                      #3b82f6,
+                      #06b6d4,
+                      #10b981
+                    );
+                  "
+                ></div>
+                <img
+                  src="https://firebasestorage.googleapis.com/v0/b/derrivepro.appspot.com/o/Logo%20Variation%202.png?alt=media&token=910ebcff-93b9-450a-8835-471f10c80750"
+                  alt="XMobit Logo"
+                  style="
+                    max-width: 150px;
+                    height: auto;
+                    margin-bottom: 20px;
+                    filter: brightness(1.1);
+                  "
+                />
+                <h1
+                  style="
+                    color: #ffffff;
+                    font-size: 28px;
+                    font-weight: 700;
+                    margin: 0;
+                    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+                  "
+                >
+                  Verify Your Email
+                </h1>
+              </td>
+            </tr>
+
+            <!-- Main Content -->
+            <tr>
+              <td style="padding: 40px 30px">
+                <!-- Welcome Message -->
+                <div style="text-align: center; margin-bottom: 32px">
+                  <h2
+                    style="
+                      color: #1f2937;
+                      font-size: 24px;
+                      font-weight: 600;
+                      margin: 0 0 16px;
+                    "
+                  >
+                    Welcome to XMobit! 🎉
+                  </h2>
+                  <p
+                    style="
+                      color: #6b7280;
+                      font-size: 16px;
+                      margin: 0;
+                      line-height: 1.6;
+                    "
+                  >
+                    We're excited to have you on board. To complete your
+                    registration, please verify your email address using the
+                    verification code below.
+                  </p>
+                </div>
+
+                <!-- OTP Code Section -->
+                <div style="text-align: center; margin-bottom: 32px">
+                  <div
+                    style="
+                      background: linear-gradient(
+                        135deg,
+                        #f8fafc 0%,
+                        #f1f5f9 100%
+                      );
+                      border-radius: 16px;
+                      padding: 32px 24px;
+                      border: 1px solid #e2e8f0;
+                      margin: 0 auto;
+                      max-width: 400px;
+                    "
+                  >
+                    <p
+                      style="
+                        color: #6b7280;
+                        font-size: 14px;
+                        margin: 0 0 8px;
+                        font-weight: 500;
+                        text-transform: uppercase;
+                        letter-spacing: 1px;
+                      "
+                    >
+                      Verification Code
+                    </p>
+                    <div
+                      style="
+                        background: #ffffff;
+                        border: 2px solid #3b82f6;
+                        border-radius: 12px;
+                        padding: 20px;
+                        margin: 0 auto;
+                        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+                      "
+                    >
+                      <span
+                        style="
+                          font-family: 'Courier New', monospace;
+                          font-size: 32px;
+                          font-weight: 700;
+                          color: #3b82f6;
+                          letter-spacing: 8px;
+                          display: block;
+                        "
+                        >{{verificationCode}}</span
+                      >
+                    </div>
+                    <p
+                      style="
+                        color: #9ca3af;
+                        font-size: 12px;
+                        margin: 16px 0 0;
+                        line-height: 1.4;
+                      "
+                    >
+                      ⏰ Expires in 15 minutes
+                    </p>
+                  </div>
+                </div>
+
+                <!-- Instructions -->
+                <div
+                  style="
+                    background: #ecfdf5;
+                    border-radius: 12px;
+                    padding: 24px;
+                    margin-bottom: 32px;
+                    border-left: 4px solid #10b981;
+                  "
+                >
+                  <h3
+                    style="
+                      color: #047857;
+                      font-size: 16px;
+                      font-weight: 600;
+                      margin: 0 0 12px;
+                      display: flex;
+                      align-items: center;
+                    "
+                  >
+                    📋 How to verify:
+                  </h3>
+                  <ol
+                    style="
+                      color: #065f46;
+                      font-size: 14px;
+                      margin: 0;
+                      padding-left: 20px;
+                    "
+                  >
+                    <li style="margin-bottom: 8px">
+                      Copy the 6-digit verification code above
+                    </li>
+                    <li style="margin-bottom: 8px">
+                      Return to the XMobit verification page
+                    </li>
+                    <li style="margin-bottom: 8px">
+                      Enter the code in the verification field
+                    </li>
+                    <li>Click "Verify Email" to complete your registration</li>
+                  </ol>
+                </div>
+
+                <!-- Security Notice -->
+                <div
+                  style="
+                    background: #fef3c7;
+                    border-radius: 12px;
+                    padding: 20px;
+                    margin-bottom: 32px;
+                    border-left: 4px solid #f59e0b;
+                  "
+                >
+                  <h4
+                    style="
+                      color: #92400e;
+                      font-size: 14px;
+                      font-weight: 600;
+                      margin: 0 0 8px;
+                      display: flex;
+                      align-items: center;
+                    "
+                  >
+                    🔒 Security Notice:
+                  </h4>
+                  <p
+                    style="
+                      color: #a16207;
+                      font-size: 13px;
+                      margin: 0;
+                      line-height: 1.5;
+                    "
+                  >
+                    For your security, never share this verification code with
+                    anyone. XMobit support will never ask for your verification
+                    codes. This code will expire in 15 minutes for your
+                    protection.
+                  </p>
+                </div>
+
+                <!-- Call-to-Action -->
+                <div style="text-align: center; margin-bottom: 32px">
+                  <div
+                    style="
+                      background: linear-gradient(
+                        135deg,
+                        #3b82f6 0%,
+                        #1d4ed8 100%
+                      );
+                      border-radius: 8px;
+                      padding: 3px;
+                      display: inline-block;
+                    "
+                  >
+                    <div
+                      style="
+                        background: #ffffff;
+                        border-radius: 6px;
+                        padding: 16px 32px;
+                      "
+                    >
+                      <p
+                        style="
+                          color: #3b82f6;
+                          font-size: 16px;
+                          font-weight: 600;
+                          margin: 0;
+                        "
+                      >
+                        🚀 Ready to start trading crypto?
+                      </p>
+                      <p
+                        style="color: #6b7280; font-size: 14px; margin: 4px 0 0"
+                      >
+                        Complete your verification to access all features
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </td>
+            </tr>
+
+            <!-- Footer -->
+            <tr>
+              <td
+                style="
+                  background: #f8fafc;
+                  padding: 30px;
+                  text-align: center;
+                  border-top: 1px solid #e2e8f0;
+                "
+              >
+                <p
+                  style="
+                    color: #9ca3af;
+                    font-size: 14px;
+                    margin: 0 0 16px;
+                    line-height: 1.5;
+                  "
+                >
+                  If you didn't create an account with XMobit, you can safely
+                  ignore this email. Your email address will not be used for any
+                  other purpose.
+                </p>
+
+                <div style="margin-bottom: 20px">
+                  <a
+                    href="https://xmobit.com/support"
+                    style="
+                      color: #3b82f6;
+                      text-decoration: none;
+                      font-size: 13px;
+                      margin: 0 12px;
+                    "
+                    >Support</a
+                  >
+                  <span style="color: #d1d5db">|</span>
+                  <a
+                    href="https://xmobit.com/privacy"
+                    style="
+                      color: #3b82f6;
+                      text-decoration: none;
+                      font-size: 13px;
+                      margin: 0 12px;
+                    "
+                    >Privacy Policy</a
+                  >
+                  <span style="color: #d1d5db">|</span>
+                  <a
+                    href="https://xmobit.com/terms"
+                    style="
+                      color: #3b82f6;
+                      text-decoration: none;
+                      font-size: 13px;
+                      margin: 0 12px;
+                    "
+                    >Terms of Service</a
+                  >
+                </div>
+
+                <p
+                  style="
+                    color: #9ca3af;
+                    font-size: 12px;
+                    margin: 0;
+                    line-height: 1.4;
+                  "
+                >
+                  © 2024 XMobit. All rights reserved.<br />
+                  Secure cryptocurrency trading platform
+                </p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>

@@ -25,7 +25,7 @@ async function bootstrap() {
   const config = new DocumentBuilder()
     .setTitle('Auth Engine  API')
     .setDescription(
-      'Comprehensive user management microservice for Xmobit platform with advanced authentication, 2FA, security auditing, and analytics',
+      'Comprehensive user management microservice for xmobit platform with advanced authentication, 2FA, security auditing, and analytics',
     )
     .setVersion('1.0')
     .addBearerAuth(
@@ -57,11 +57,17 @@ async function bootstrap() {
 
   const port = process.env.PORT || 3000;
   await app.listen(port);
+
+  Logger.log('🚀 AuthShield Service Started Successfully', 'Bootstrap');
   Logger.log(
-    ` Auth Engine Service is running on: http://localhost:${port}/api/v1`,
-    'INFO',
+    `🌐 Server running on: http://localhost:${port}/api/v1`,
+    'Bootstrap',
   );
-  Logger.log(`Swagger API Documentation: http://localhost:${port}/api`, 'INFO');
+  Logger.log(
+    `📚 Swagger Documentation: http://localhost:${port}/api`,
+    'Bootstrap',
+  );
+  Logger.log(`🔍 Request logging is enabled for all endpoints`, 'Bootstrap');
 }
 
 bootstrap();

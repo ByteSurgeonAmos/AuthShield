@@ -46,6 +46,45 @@ export class RegisterResponseDto {
   userId: string;
 
   @ApiProperty({
+    description: 'Email address',
+    example: 'john.doe@example.com',
+  })
+  email: string;
+
+  @ApiProperty({
+    description: 'Full name',
+    example: 'John Doe',
+  })
+  fullname: string;
+
+  @ApiPropertyOptional({
+    description: 'Temporary username (can be changed later)',
+    example: 'user_abc123',
+  })
+  tempUsername?: string;
+
+  @ApiProperty({
+    description: 'Response message',
+    example:
+      'Account created successfully. Please check your email for verification.',
+  })
+  message: string;
+
+  @ApiProperty({
+    description: 'Whether profile setup is complete',
+    example: false,
+  })
+  profileComplete: boolean;
+}
+
+export class ProfileCompleteResponseDto {
+  @ApiProperty({
+    description: 'User ID',
+    example: 'a1b2c3d4-e5f6-7g8h-9i0j-k1l2m3n4o5p6',
+  })
+  userId: string;
+
+  @ApiProperty({
     description: 'Username',
     example: 'johndoe',
   })
@@ -57,11 +96,23 @@ export class RegisterResponseDto {
   })
   email: string;
 
+  @ApiPropertyOptional({
+    description: 'Profile image URL',
+    example: 'https://example.com/profile.jpg',
+  })
+  profileImage?: string;
+
   @ApiProperty({
     description: 'Response message',
-    example: 'User registered successfully',
+    example: 'Profile completed successfully',
   })
   message: string;
+
+  @ApiProperty({
+    description: 'Whether profile setup is complete',
+    example: true,
+  })
+  profileComplete: boolean;
 }
 
 export class Setup2FAResponseDto {
