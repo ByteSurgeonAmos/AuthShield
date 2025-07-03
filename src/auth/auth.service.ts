@@ -192,7 +192,7 @@ export class UsersService {
     await transporter.sendMail({
       from: this.config.get<string>('NOTIFICATIONS_EMAIL'),
       to: email,
-      subject: 'Verify Your Email - XMobit',
+      subject: 'Verify Your Email - xmobit',
       html: htmlContent,
     });
   }
@@ -655,7 +655,7 @@ export class UsersService {
     await transporter.sendMail({
       from: this.config.get<string>('NOTIFICATIONS_EMAIL'),
       to: user.email,
-      subject: 'New Login Detected - XMobit',
+      subject: 'New Login Detected - xmobit',
       html: htmlContent,
     });
   }
@@ -665,8 +665,8 @@ export class UsersService {
 
     if (method === TwoFactorMethod.AUTHENTICATOR) {
       const secret = speakeasy.generateSecret({
-        name: `Xmobit (${user.email})`,
-        issuer: 'Xmobit',
+        name: `xmobit (${user.email})`,
+        issuer: 'xmobit',
         length: 32,
       });
 
@@ -772,7 +772,7 @@ export class UsersService {
     await transporter.sendMail({
       from: this.config.get<string>('NOTIFICATIONS_EMAIL'),
       to: email,
-      subject: 'Your 2FA Verification Code - XMobit',
+      subject: 'Your 2FA Verification Code - xmobit',
       html: htmlContent,
     });
   }
@@ -1529,7 +1529,7 @@ export class UsersService {
           userExists.userId,
           userExists.email,
           'Social login successful',
-          `You've successfully logged in with ${auth_provider}. Welcome back to XMOBIT!`,
+          `You've successfully logged in with ${auth_provider}. Welcome back to xmobit!`,
           'auth',
           'low',
         );
@@ -2045,7 +2045,6 @@ export class UsersService {
 
     await this.sendWelcomeEmail(user.email, user.username);
 
-    // Generate JWT token for the verified user
     const userRoles = user.roles?.map((role) => role.roles) || [
       UserRoleType.USER,
     ];
@@ -2144,12 +2143,11 @@ export class UsersService {
         };
       }
 
-      // Format the phone number using provided country code or user's saved country code
       const phoneResult = formatPhoneNumber(
         phoneNumber,
         countryCode,
         user.countryCode,
-        '254', // default country code
+        '254',
       );
 
       if (!phoneResult.isValid) {
@@ -2165,7 +2163,6 @@ export class UsersService {
       user.phoneVerificationToken = otp;
       user.phoneVerificationExpires = expiresAt;
 
-      // Update user's country code if a new one was provided
       if (countryCode && countryCode !== user.countryCode) {
         user.countryCode = countryCode;
       }
@@ -2175,13 +2172,12 @@ export class UsersService {
       try {
         await this.smsService.sendSms(
           phoneResult.formatted,
-          `Your XMobit verification code is: ${otp}`,
+          `Your xmobit verification code is: ${otp}`,
           phoneResult.countryCode,
         );
       } catch (smsError) {
         console.error('SMS sending failed in auth service:', smsError);
 
-        // Extract more meaningful error message from SMS service
         let errorMessage = 'Failed to send SMS';
         if (smsError?.response?.error) {
           errorMessage = smsError.response.error;
@@ -2741,7 +2737,7 @@ export class UsersService {
     email: string,
     resetToken: string,
   ): Promise<void> {
-    const resetUrl = `${this.config.get('FRONTEND_URL')}/reset-password?token=${resetToken}`;
+    const baseURL = this.config.get('FRONTEND_URL') || 'http://localhost:3001';
 
     const transporter = nodemailer.createTransport({
       host: 'mail.privateemail.com',
@@ -2757,17 +2753,19 @@ export class UsersService {
       __dirname,
       '../templates/password-reset.html',
     );
-    const templateContent = fs.readFileSync(templatePath, 'utf8');
-
-    const html = templateContent
-      .replace(/{{resetUrl}}/g, resetUrl)
-      .replace(/{{expiryTime}}/g, '1 hour');
+    const source = fs.readFileSync(templatePath, 'utf-8').toString();
+    const template = handlebars.compile(source);
+    const htmlContent = template({
+      baseURL: baseURL,
+      token: resetToken,
+      expiryTime: '1 hour',
+    });
 
     await transporter.sendMail({
       from: this.config.get<string>('NOTIFICATIONS_EMAIL'),
       to: email,
-      subject: 'Password Reset Request',
-      html,
+      subject: 'Password Reset Request - xmobit',
+      html: htmlContent,
     });
   }
 
@@ -2797,7 +2795,7 @@ export class UsersService {
       await transporter.sendMail({
         from: this.config.get<string>('NOTIFICATIONS_EMAIL'),
         to: email,
-        subject: 'Welcome to XMobit!',
+        subject: 'Welcome to xmobit!',
         html,
       });
     } catch (error) {
