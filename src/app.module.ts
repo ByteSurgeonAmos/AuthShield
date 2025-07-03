@@ -13,6 +13,8 @@ import { SmsModule } from './sms/sms.module';
 import { HealthModule } from './health/health.module';
 import { ApiDocsModule } from './api-docs/api-docs.module';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
+import { SeedService } from './common/services/seed.service';
+import { SystemController } from './common/controllers/system.controller';
 
 @Module({
   imports: [
@@ -76,17 +78,20 @@ import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
         };
       },
     }),
+    TypeOrmModule.forFeature([User, UserRole, UserDetails]),
     UsersModule,
     SmsModule,
     HealthModule,
     ApiDocsModule,
   ],
-  controllers: [],
+  controllers: [SystemController],
   providers: [
     {
       provide: APP_INTERCEPTOR,
       useClass: LoggingInterceptor,
     },
+    SeedService,
   ],
+  exports: [SeedService],
 })
 export class AppModule {}

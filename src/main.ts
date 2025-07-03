@@ -2,6 +2,7 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { Logger, ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { SeedService } from './common/services/seed.service';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -56,6 +57,16 @@ async function bootstrap() {
   });
 
   const port = process.env.PORT || 3000;
+
+  try {
+    Logger.log('🌱 Starting database seeding...', 'Bootstrap');
+    const seedService = app.get(SeedService);
+    await seedService.seedAdminUser();
+    Logger.log('🌱 Database seeding completed successfully', 'Bootstrap');
+  } catch (error) {
+    Logger.error('🌱 Database seeding failed:', error.message, 'Bootstrap');
+  }
+
   await app.listen(port);
 
   Logger.log('🚀 AuthShield Service Started Successfully', 'Bootstrap');
