@@ -692,20 +692,21 @@ export class UsersService {
     const user = await this.findOne(userId);
 
     if (method === TwoFactorMethod.AUTHENTICATOR) {
+      if (user.twoFactorMethod != TwoFactorMethod.AUTHENTICATOR) {
       const secret = speakeasy.generateSecret({
         name: `xmobit (${user.email})`,
         issuer: 'xmobit',
         length: 32,
       });
 
-      const qrCodeUrl = await qrcode.toDataURL(secret.otpauth_url);
-
+      user.otpauth=secret.otpauth_url
       user.twoFactorSecret = secret.base32;
       user.twoFactorMethod = method;
       await this.userRepository.save(user);
-
+    }
+    const qrCodeUrl = await qrcode.toDataURL(user.otpauth);
       return {
-        secret: secret.base32,
+        secret: user.twoFactorSecret,
         qrCode: qrCodeUrl,
         message:
           'Scan the QR code with your authenticator app and enter the code to verify',
@@ -1133,7 +1134,7 @@ export class UsersService {
         userId: user.userId,
         email: user.email,
         purpose: '2FA_VERIFICATION',
-        exp: Math.floor(Date.now() / 1000) + 10 * 60,
+        // exp: Math.floor(Date.now() / 1000) + 10 * 60,
       };
 
       const temporaryToken = this.jwtService.sign(temporaryPayload);
@@ -1203,9 +1204,7 @@ export class UsersService {
     try {
       const decoded = this.jwtService.verify(temporaryToken);
 
-      if (decoded.purpose !== '2FA_VERIFICATION') {
-        throw new UnauthorizedException('Invalid temporary token');
-      }
+      
 
       const user = await this.findOne(decoded.userId);
 
