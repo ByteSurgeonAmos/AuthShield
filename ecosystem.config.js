@@ -1,4 +1,3 @@
-
 module.exports = {
   apps: [
     {
@@ -12,7 +11,9 @@ module.exports = {
       env_staging: {
         NODE_ENV: "staging",
         PORT: 3003,
-        ADMIN_DEFAULT_PASSWORD: "xmobit@12345",
+        API_KEY:"6d956be59be9acc5461b4e057e99195a0321386352d25b946b647c2f3667149e",
+        AUTH_ENGINE_API_KEY:"6d956be59be9acc5461b4e057e99195a0321386352d25b946b647c2f3667149e",
+        ADMIN_DEFAULT_PASSWORD:"xmobit@12345",
         DATABASE_URL: "postgresql://datahub-admin:D4t4HubAdmin_7r9KzP2w@165.73.244.226:5432/datahub",
         TEMP_JWT_SECRET: "47411d04278145e15dfc98fc8b177786c27bf3562ebd66d3123a1eda0ebe038e",
         JWT_SECRET: "47411d04278145e15dfc98fc8b177786c27bf3562ebd66d3123a1eda0ebe038e",
@@ -26,6 +27,8 @@ module.exports = {
       env_production: {
         NODE_ENV: "production",
         PORT: 3003,
+        API_KEY:"6d956be59be9acc5461b4e057e99195a0321386352d25b946b647c2f3667149e",
+        AUTH_ENGINE_API_KEY:"6d956be59be9acc5461b4e057e99195a0321386352d25b946b647c2f3667149e",
         ADMIN_DEFAULT_PASSWORD: "xmobit@12345",
         DATABASE_URL: "postgresql://datahub-prod-admin:Dh7\$mK9pQ2vX8nL3wR6tY4uE@86.48.1.16:5432/datahub-prod",
         TEMP_JWT_SECRET: "47411d04278145e15dfc98fc8b177786c27bf3562ebd66d3123a1eda0ebe038e",
