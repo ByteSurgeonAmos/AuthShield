@@ -2025,7 +2025,7 @@ export class UsersController {
 
   @Post('third-party-auth')
   @HttpCode(HttpStatus.OK)
-  // @UseGuards(ApiKeyGuard)
+  @UseGuards(ApiKeyGuard)
   // @ApiBearerAuth('access-token')
   @ApiOperation({
     summary: 'Link third party authentication',
