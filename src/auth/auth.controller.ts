@@ -2025,8 +2025,8 @@ export class UsersController {
 
   @Post('third-party-auth')
   @HttpCode(HttpStatus.OK)
-  @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth('access-token')
+  // @UseGuards(ApiKeyGuard)
+  // @ApiBearerAuth('access-token')
   @ApiOperation({
     summary: 'Link third party authentication',
     description: 'Link third party provider account to user account',
@@ -2035,16 +2035,27 @@ export class UsersController {
     schema: {
       type: 'object',
       properties: {
-        provider: {
+        email: {
           type: 'string',
+          format: 'email',
+          example: 'amos@email.com',
+        },
+        image: {
+          type: 'string',
+          format: 'uri',
+          example: 'https://example.com/image.jpg',
+        },
+        name: {
+          type: 'string',
+          example: 'Amos Smith',
+        },
+        authProvider: {
+          type: 'string',
+          // enum: ['google', 'facebook', 'github'],
           example: 'google',
         },
-        accessToken: {
-          type: 'string',
-          example: 'third-party-access-token',
-        },
       },
-      required: ['provider', 'accessToken'],
+      required: ['email', 'image', 'name', 'authProvider'],
     },
   })
   @ApiResponse({
@@ -2053,14 +2064,16 @@ export class UsersController {
     type: MessageResponseDto,
   })
   async linkThirdPartyAuth(
-    @Request() req,
-    @Body() body: { provider: string; accessToken: string },
+    // @Request() req,
+    @Body()
+    body: {
+      email: string;
+      image: string;
+      name: string;
+      authProvider: string;
+    },
   ) {
-    return this.usersService.linkThirdPartyAuth(
-      req.user.userId,
-      body.provider,
-      body.accessToken,
-    );
+    return this.usersService.thirdPartyAuth(body);
   }
 
   // =============== PAYMENT DETAILS ENDPOINTS ===============
