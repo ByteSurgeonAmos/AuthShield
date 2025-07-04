@@ -20,6 +20,7 @@ import {
   ApiParam,
   ApiQuery,
   ApiBody,
+  ApiSecurity,
 } from '@nestjs/swagger';
 import { UsersService } from './auth.service';
 import { SimpleRegisterDto } from './dto/simple-register.dto';
@@ -56,6 +57,11 @@ import {
 } from './dto/response-models.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { JwtAdminGuard } from './guards/jwt-admin.guard';
+import { ApiKeyGuard } from './guards/api-key.guard';
+import { JwtOrApiKeyGuard } from './guards/jwt-or-api-key.guard';
+import { AdminOrApiKeyGuard } from './guards/admin-or-api-key.guard';
+import { JwtAndApiKeyGuard } from './guards/jwt-and-api-key.guard';
+import { AdminJwtAndApiKeyGuard } from './guards/admin-jwt-and-api-key.guard';
 
 @ApiTags('Authentication')
 @Controller('users')
@@ -227,7 +233,6 @@ export class UsersController {
     );
   }
 
-  // Keep the old token verification for backward compatibility (deprecated)
   @Post('verify-email')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
@@ -484,7 +489,7 @@ export class UsersController {
   // =============== USER MANAGEMENT ENDPOINTS ===============
 
   @Get()
-  @UseGuards(JwtAdminGuard)
+  @UseGuards(ApiKeyGuard)
   @ApiBearerAuth('access-token')
   @ApiTags('User Management')
   @ApiOperation({
@@ -509,7 +514,7 @@ export class UsersController {
   }
 
   @Get('profile')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(ApiKeyGuard)
   @ApiBearerAuth('access-token')
   @ApiTags('User Management')
   @ApiOperation({
@@ -530,7 +535,7 @@ export class UsersController {
   }
 
   @Get(':id')
-  @UseGuards(JwtAdminGuard)
+  @UseGuards(ApiKeyGuard)
   @ApiBearerAuth('access-token')
   @ApiTags('User Management')
   @ApiOperation({
@@ -566,12 +571,12 @@ export class UsersController {
   }
 
   @Patch(':id')
-  @UseGuards(JwtAdminGuard)
+  @UseGuards(ApiKeyGuard)
   async update(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto) {
     return this.usersService.update(id, updateUserDto);
   }
   @Delete(':id')
-  @UseGuards(JwtAdminGuard)
+  @UseGuards(ApiKeyGuard)
   @ApiBearerAuth('access-token')
   @ApiTags('User Management')
   @ApiOperation({
@@ -604,7 +609,7 @@ export class UsersController {
   // =============== ROLE MANAGEMENT ENDPOINTS ===============
 
   @Post(':id/assign-role')
-  @UseGuards(JwtAdminGuard)
+  @UseGuards(ApiKeyGuard)
   @ApiBearerAuth('access-token')
   @ApiTags('Admin')
   @ApiOperation({
@@ -653,7 +658,7 @@ export class UsersController {
   }
 
   @Delete(':id/remove-role')
-  @UseGuards(JwtAdminGuard)
+  @UseGuards(ApiKeyGuard)
   @ApiBearerAuth('access-token')
   @ApiTags('Admin')
   @ApiOperation({
@@ -696,7 +701,7 @@ export class UsersController {
     return this.usersService.removeRole(id, role as any);
   }
   @Get('analytics/overview')
-  @UseGuards(JwtAdminGuard)
+  @UseGuards(ApiKeyGuard)
   @ApiBearerAuth('access-token')
   @ApiTags('Analytics')
   @ApiOperation({
@@ -718,7 +723,7 @@ export class UsersController {
   }
 
   @Get('analytics/logins')
-  @UseGuards(JwtAdminGuard)
+  @UseGuards(ApiKeyGuard)
   @ApiBearerAuth('access-token')
   @ApiTags('Analytics')
   @ApiOperation({
@@ -739,7 +744,7 @@ export class UsersController {
   }
 
   @Get('analytics/security')
-  @UseGuards(JwtAdminGuard)
+  @UseGuards(ApiKeyGuard)
   @ApiBearerAuth('access-token')
   @ApiTags('Analytics')
   @ApiOperation({
@@ -761,7 +766,7 @@ export class UsersController {
   }
 
   @Get('analytics/dashboard')
-  @UseGuards(JwtAdminGuard)
+  @UseGuards(ApiKeyGuard)
   @ApiBearerAuth('access-token')
   @ApiTags('Analytics')
   @ApiOperation({
@@ -804,7 +809,7 @@ export class UsersController {
   // =============== ADMIN UTILITIES ===============
 
   @Post('bulk-actions/activate')
-  @UseGuards(JwtAdminGuard)
+  @UseGuards(ApiKeyGuard)
   @ApiBearerAuth('access-token')
   @ApiTags('Admin')
   @ApiOperation({
@@ -849,7 +854,7 @@ export class UsersController {
   }
 
   @Post('bulk-actions/deactivate')
-  @UseGuards(JwtAdminGuard)
+  @UseGuards(ApiKeyGuard)
   @ApiBearerAuth('access-token')
   @ApiTags('Admin')
   @ApiOperation({
@@ -895,7 +900,7 @@ export class UsersController {
   }
 
   @Post('bulk-actions/reset-failed-attempts')
-  @UseGuards(JwtAdminGuard)
+  @UseGuards(ApiKeyGuard)
   @ApiBearerAuth('access-token')
   @ApiTags('Admin')
   @ApiOperation({
@@ -945,7 +950,7 @@ export class UsersController {
   // =============== SEARCH AND FILTER ENDPOINTS ===============
 
   @Get('search/by-email')
-  @UseGuards(JwtAdminGuard)
+  @UseGuards(ApiKeyGuard)
   @ApiBearerAuth('access-token')
   @ApiTags('Admin')
   @ApiOperation({
@@ -975,7 +980,7 @@ export class UsersController {
   }
 
   @Get('filter/unverified')
-  @UseGuards(JwtAdminGuard)
+  @UseGuards(ApiKeyGuard)
   @ApiBearerAuth('access-token')
   @ApiTags('Admin')
   @ApiOperation({
@@ -998,7 +1003,7 @@ export class UsersController {
   }
 
   @Get('filter/locked')
-  @UseGuards(JwtAdminGuard)
+  @UseGuards(ApiKeyGuard)
   @ApiBearerAuth('access-token')
   @ApiTags('Admin')
   @ApiOperation({
@@ -1026,7 +1031,7 @@ export class UsersController {
   }
 
   @Get('filter/inactive')
-  @UseGuards(JwtAdminGuard)
+  @UseGuards(ApiKeyGuard)
   @ApiBearerAuth('access-token')
   @ApiTags('Admin')
   @ApiOperation({
@@ -1049,7 +1054,7 @@ export class UsersController {
   }
 
   @Get('filter/2fa-enabled')
-  @UseGuards(JwtAdminGuard)
+  @UseGuards(ApiKeyGuard)
   @ApiBearerAuth('access-token')
   @ApiTags('Admin')
   @ApiOperation({
@@ -1074,7 +1079,7 @@ export class UsersController {
   // =============== SECURITY AUDIT ENDPOINTS ===============
 
   @Get('security/audit-logs')
-  @UseGuards(JwtAdminGuard)
+  @UseGuards(ApiKeyGuard)
   @ApiBearerAuth('access-token')
   @ApiTags('Security')
   @ApiOperation({
@@ -1128,7 +1133,7 @@ export class UsersController {
   }
 
   @Get('security/audit-logs/by-type/:eventType')
-  @UseGuards(JwtAdminGuard)
+  @UseGuards(ApiKeyGuard)
   @ApiBearerAuth('access-token')
   @ApiTags('Security')
   @ApiOperation({
@@ -1166,7 +1171,7 @@ export class UsersController {
   }
 
   @Get('security/audit-logs/date-range')
-  @UseGuards(JwtAdminGuard)
+  @UseGuards(ApiKeyGuard)
   @ApiBearerAuth('access-token')
   @ApiTags('Security')
   @ApiOperation({
@@ -1357,7 +1362,7 @@ export class UsersController {
   }
 
   @Get('admin/notifications/all')
-  @UseGuards(JwtAdminGuard)
+  @UseGuards(ApiKeyGuard)
   @ApiBearerAuth('access-token')
   @ApiTags('Notifications')
   @ApiOperation({
@@ -1385,7 +1390,7 @@ export class UsersController {
     );
   }
   @Post('admin/notifications/broadcast')
-  @UseGuards(JwtAdminGuard)
+  @UseGuards(ApiKeyGuard)
   @ApiBearerAuth('access-token')
   @ApiTags('Notifications')
   @ApiOperation({
@@ -1460,7 +1465,7 @@ export class UsersController {
   // =============== ADVANCED SECURITY ENDPOINTS ===============
 
   @Post('security/manual-lockout/:id')
-  @UseGuards(JwtAdminGuard)
+  @UseGuards(ApiKeyGuard)
   @ApiBearerAuth('access-token')
   @ApiTags('Security')
   @ApiOperation({
@@ -1517,7 +1522,7 @@ export class UsersController {
   }
 
   @Post('security/unlock-account/:id')
-  @UseGuards(JwtAdminGuard)
+  @UseGuards(ApiKeyGuard)
   @ApiBearerAuth('access-token')
   @ApiTags('Security')
   @ApiOperation({
@@ -1563,7 +1568,7 @@ export class UsersController {
     return this.usersService.unlockAccount(id, body.reason);
   }
   @Get('security/suspicious-activities')
-  @UseGuards(JwtAdminGuard)
+  @UseGuards(ApiKeyGuard)
   @ApiBearerAuth('access-token')
   @ApiTags('Security')
   @ApiOperation({
@@ -1605,7 +1610,7 @@ export class UsersController {
   }
 
   @Get('security/failed-login-patterns')
-  @UseGuards(JwtAdminGuard)
+  @UseGuards(ApiKeyGuard)
   @ApiBearerAuth('access-token')
   @ApiTags('Security')
   @ApiOperation({
@@ -2169,6 +2174,33 @@ export class UsersController {
   async healthCheck() {
     return {
       status: 'ok',
+      timestamp: new Date().toISOString(),
+      service: 'AuthShield',
+    };
+  }
+
+  // =============== API KEY TEST ENDPOINT ===============
+
+  @Get('test/api-key')
+  @UseGuards(ApiKeyGuard)
+  @ApiSecurity('api-key')
+  @ApiTags('System')
+  @ApiOperation({
+    summary: 'Test API key authentication',
+    description: 'Test endpoint to verify API key authentication is working',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'API key authentication successful',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Invalid or missing API key',
+  })
+  async testApiKey() {
+    return {
+      status: 'success',
+      message: 'API key authentication is working correctly',
       timestamp: new Date().toISOString(),
       service: 'AuthShield',
     };
