@@ -37,6 +37,15 @@ async function bootstrap() {
       },
       'access-token',
     )
+    .addApiKey(
+      {
+        type: 'apiKey',
+        name: 'X-API-Key',
+        in: 'header',
+        description: 'API key for service-to-service authentication',
+      },
+      'api-key',
+    )
     .addTag('Authentication', 'User authentication and login endpoints')
     .addTag('User Management', 'User CRUD operations and profile management')
     .addTag('2FA', 'Two-factor authentication setup and verification')

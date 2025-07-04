@@ -114,6 +114,14 @@ export class User {
   })
   referalByAccount: string;
 
+  @Column({
+    name: 'otpauth',
+    type: 'varchar',
+    length: 255,
+    nullable: true,
+  })
+  otpauth: string;
+
   @Column({ name: 'last_login', type: 'timestamp', nullable: true })
   lastLogin: Date;
 
