@@ -1200,7 +1200,13 @@ export class UsersService {
     temporaryToken: string,
     twoFactorCode: string,
     loginDetails: any,
-  ): Promise<{ accesstoken: string; user: any; message: string }> {
+  ): Promise<{
+    accesstoken: string;
+    token: string;
+    user: any;
+    message: string;
+    verified: boolean;
+  }> {
     try {
       const decoded = this.jwtService.verify(temporaryToken);
 
@@ -1235,8 +1241,11 @@ export class UsersService {
       const loginResult = await this.completeLogin(user, loginDetails);
 
       return {
-        ...loginResult,
+        accesstoken: loginResult.accesstoken,
+        token: loginResult.accesstoken,
+        user: loginResult.user,
         message: '2FA verified successfully. Login completed.',
+        verified: true,
       };
     } catch (error) {
       if (

@@ -518,7 +518,7 @@ export class UsersController {
   }
 
   @Get('profile')
-  @UseGuards(ApiKeyGuard)
+  @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('access-token')
   @ApiTags('User Management')
   @ApiOperation({
