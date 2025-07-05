@@ -1597,67 +1597,60 @@ export class UsersService {
           },
         };
       } else {
-        await this.registerUsersWithGoogleFacebook(
-          email,
-          auth_provider,
-          fullname,
-          profile_url,
-        );
-
-        const newUser = await this.findByEmail(email);
-
-        // Update user login details for new user
-        newUser.lastLogin = new Date();
-        await this.userRepository.save(newUser);
-
-        // Record security event for new user registration
-        await this.securityAuditService.recordSecurityEvent({
-          eventType: 'SUCCESSFUL_LOGIN',
-          userId: newUser.userId,
-          email: newUser.email,
-          additionalData: {
-            authProvider: auth_provider,
-            newRegistration: true,
-          },
-        });
-
-        const userRoles = newUser.roles?.map((role) => role.roles) || [
-          UserRoleType.USER,
-        ];
-
-        const payload = {
-          userId: newUser.userId,
-          email: newUser.email,
-          username: newUser.username,
-          roles: userRoles,
-          emailVerified: newUser.emailVerified,
-          phoneVerified: newUser.phoneNoVerified,
-        };
-
+        // await this.registerUsersWithGoogleFacebook(
+        //   email,
+        //   auth_provider,
+        //   fullname,
+        //   profile_url,
+        // );
+        // const newUser = await this.findByEmail(email);
+        // // Update user login details for new user
+        // newUser.lastLogin = new Date();
+        // await this.userRepository.save(newUser);
+        // // Record security event for new user registration
+        // await this.securityAuditService.recordSecurityEvent({
+        //   eventType: 'SUCCESSFUL_LOGIN',
+        //   userId: newUser.userId,
+        //   email: newUser.email,
+        //   additionalData: {
+        //     authProvider: auth_provider,
+        //     newRegistration: true,
+        //   },
+        // });
+        // const userRoles = newUser.roles?.map((role) => role.roles) || [
+        //   UserRoleType.USER,
+        // ];
+        // const payload = {
+        //   userId: newUser.userId,
+        //   email: newUser.email,
+        //   username: newUser.username,
+        //   roles: userRoles,
+        //   emailVerified: newUser.emailVerified,
+        //   phoneVerified: newUser.phoneNoVerified,
+        // };
         // Send signup confirmation
-        if (newUser.emailVerificationToken) {
-          await this.sendVerificationEmail(
-            newUser.email,
-            newUser.emailVerificationToken,
-          );
-        }
-
-        return {
-          accesstoken: this.jwtService.sign(payload),
-          user: {
-            userId: newUser.userId,
-            username: newUser.username,
-            email: newUser.email,
-            roles: userRoles,
-            emailVerified: newUser.emailVerified,
-            phoneVerified: newUser.phoneNoVerified,
-            isAccountActive: newUser.isAccountActive,
-            completedTrades: newUser.completedTrades,
-            details: newUser.details,
-            is2FaEnabled: newUser.is2FaEnabled,
-            twoFactorMethod: newUser.twoFactorMethod,
-          },
-        };
+        // if (newUser.emailVerificationToken) {
+        //   await this.sendVerificationEmail(
+        //     newUser.email,
+        //     newUser.emailVerificationToken,
+        //   );
+        // }
+        // return {
+        //   accesstoken: this.jwtService.sign(payload),
+        //   user: {
+        //     userId: newUser.userId,
+        //     username: newUser.username,
+        //     email: newUser.email,
+        //     roles: userRoles,
+        //     emailVerified: newUser.emailVerified,
+        //     phoneVerified: newUser.phoneNoVerified,
+        //     isAccountActive: newUser.isAccountActive,
+        //     completedTrades: newUser.completedTrades,
+        //     details: newUser.details,
+        //     is2FaEnabled: newUser.is2FaEnabled,
+        //     twoFactorMethod: newUser.twoFactorMethod,
+        //   },
+        // };
       }
     } catch (error: any) {
       console.error('Error during third-party authentication:', error);
@@ -1669,47 +1662,47 @@ export class UsersService {
     }
   }
 
-  async registerUsersWithGoogleFacebook(
-    email: string,
-    authProvider: string,
-    fullname?: string,
-    profileUrl?: string,
-  ): Promise<User> {
-    const randomUsername = await ensureUniqueUsername(this.userRepository);
+  // async registerUsersWithGoogleFacebook(
+  //   email: string,
+  //   authProvider: string,
+  //   fullname?: string,
+  //   profileUrl?: string,
+  // ): Promise<User> {
+  //   const randomUsername = await ensureUniqueUsername(this.userRepository);
 
-    const userId = uuidv4();
+  //   const userId = uuidv4();
 
-    const user = this.userRepository.create({
-      userId,
-      username: randomUsername,
-      email: email,
-      password: 'SOCIAL_LOGIN',
-      emailVerificationToken: null,
-      emailVerificationExpires: null,
-      dateRegistrated: new Date().toISOString(),
-      authProvider: authProvider,
-      emailVerified: true,
-      isVerified: true,
-    });
+  //   const user = this.userRepository.create({
+  //     userId,
+  //     username: randomUsername,
+  //     email: email,
+  //     password: 'SOCIAL_LOGIN',
+  //     emailVerificationToken: null,
+  //     emailVerificationExpires: null,
+  //     dateRegistrated: new Date().toISOString(),
+  //     authProvider: authProvider,
+  //     emailVerified: true,
+  //     isVerified: true,
+  //   });
 
-    const savedUser = await this.userRepository.save(user);
+  //   const savedUser = await this.userRepository.save(user);
 
-    const userRole = this.roleRepository.create({
-      userId: savedUser.userId,
-      roles: UserRoleType.USER,
-    });
-    await this.roleRepository.save(userRole);
+  //   const userRole = this.roleRepository.create({
+  //     userId: savedUser.userId,
+  //     roles: UserRoleType.USER,
+  //   });
+  //   await this.roleRepository.save(userRole);
 
-    if (fullname) {
-      const userDetails = this.detailsRepository.create({
-        userId: savedUser.userId,
-        fullname: fullname,
-      });
-      await this.detailsRepository.save(userDetails);
-    }
+  //   if (fullname) {
+  //     const userDetails = this.detailsRepository.create({
+  //       userId: savedUser.userId,
+  //       fullname: fullname,
+  //     });
+  //     await this.detailsRepository.save(userDetails);
+  //   }
 
-    return savedUser;
-  }
+  //   return savedUser;
+  // }
 
   // =============== SECURITY QUESTIONS METHODS ===============
 

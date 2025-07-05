@@ -62,11 +62,15 @@ import { JwtOrApiKeyGuard } from './guards/jwt-or-api-key.guard';
 import { AdminOrApiKeyGuard } from './guards/admin-or-api-key.guard';
 import { JwtAndApiKeyGuard } from './guards/jwt-and-api-key.guard';
 import { AdminJwtAndApiKeyGuard } from './guards/admin-jwt-and-api-key.guard';
+import { WalletValidationService } from './services/wallet-validation.service';
 
 @ApiTags('Authentication')
 @Controller('users')
 export class UsersController {
-  constructor(private readonly usersService: UsersService) {}
+  constructor(
+    private readonly usersService: UsersService,
+    private readonly walletValidationService: WalletValidationService,
+  ) {}
 
   // =============== AUTHENTICATION ENDPOINTS ===============
 
@@ -2217,5 +2221,48 @@ export class UsersController {
       timestamp: new Date().toISOString(),
       service: 'AuthShield',
     };
+  }
+
+  // =============== WALLET VALIDATION ENDPOINTS ===============
+
+  @Post('validate-wallets')
+  @UseGuards(JwtAdminGuard)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Manually trigger wallet validation',
+    description:
+      'Validate all user wallets and create missing ones (Admin only)',
+  })
+  @ApiQuery({
+    name: 'userId',
+    required: false,
+    description: 'Optional user ID to validate specific user wallets',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Wallet validation completed successfully',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized - Admin access required',
+  })
+  async validateWallets(@Query('userId') userId?: string): Promise<any> {
+    return await this.walletValidationService.manualWalletValidation(userId);
+  }
+
+  @Get('wallet-validation/status')
+  @UseGuards(JwtAdminGuard)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Get wallet validation cron job status',
+    description:
+      'Get information about the wallet validation cron job (Admin only)',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Cron job information retrieved successfully',
+  })
+  async getWalletValidationStatus(): Promise<any> {
+    return this.walletValidationService.getCronJobInfo();
   }
 }
