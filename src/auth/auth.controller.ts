@@ -539,6 +539,46 @@ export class UsersController {
     return this.usersService.findOne(req.user.userId);
   }
 
+  @Get('security-question')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @ApiTags('Security')
+  @ApiOperation({
+    summary: 'Get security question',
+    description: "Retrieve the user's security question (without answer)",
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Security question details',
+    schema: {
+      type: 'object',
+      properties: {
+        question: {
+          type: 'string',
+          example: 'What was the name of your first pet?',
+        },
+        isChanged: { type: 'boolean', example: false },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'No security question set',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized - Invalid token',
+  })
+  async getSecurityQuestion(@Request() req) {
+    try {
+      return await this.usersService.getSecurityQuestion(req.user.userId);
+    } catch (error) {
+      console.error('Service call failed:', error.message);
+      console.error('Error stack:', error.stack);
+      throw error;
+    }
+  }
+
   @Get(':id')
   @UseGuards(ApiKeyGuard)
   @ApiBearerAuth('access-token')
@@ -1740,40 +1780,6 @@ export class UsersController {
       req.user.userId,
       updateSecurityQuestionDto,
     );
-  }
-
-  @Get('security-question')
-  @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth('access-token')
-  @ApiTags('Security')
-  @ApiOperation({
-    summary: 'Get security question',
-    description: "Retrieve the user's security question (without answer)",
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Security question details',
-    schema: {
-      type: 'object',
-      properties: {
-        question: {
-          type: 'string',
-          example: 'What was the name of your first pet?',
-        },
-        isChanged: { type: 'boolean', example: false },
-      },
-    },
-  })
-  @ApiResponse({
-    status: 404,
-    description: 'No security question set',
-  })
-  @ApiResponse({
-    status: 401,
-    description: 'Unauthorized - Invalid token',
-  })
-  async getSecurityQuestion(@Request() req) {
-    return this.usersService.getSecurityQuestion(req.user.userId);
   }
 
   @Delete('security-question')

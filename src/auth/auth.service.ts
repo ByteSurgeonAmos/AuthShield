@@ -75,9 +75,11 @@ export class UsersService {
       where: { userId },
       relations: ['roles', 'details'],
     });
+
     if (!user) {
       throw new NotFoundException('User not found');
     }
+
     return user;
   }
 
@@ -1845,18 +1847,23 @@ export class UsersService {
   async getSecurityQuestion(
     userId: string,
   ): Promise<{ question: string; isChanged: boolean }> {
-    const securityQuestion = await this.securityQuestionRepository.findOne({
-      where: { userId },
-    });
+    try {
+      const securityQuestion = await this.securityQuestionRepository.findOne({
+        where: { userId },
+      });
 
-    if (!securityQuestion) {
-      throw new NotFoundException('No security question found for this user');
+      if (!securityQuestion) {
+        throw new NotFoundException('No security question found for this user');
+      }
+
+      return {
+        question: securityQuestion.question,
+        isChanged: securityQuestion.isChanged,
+      };
+    } catch (error) {
+      console.error('Error in getSecurityQuestion service:', error.message);
+      throw error;
     }
-
-    return {
-      question: securityQuestion.question,
-      isChanged: securityQuestion.isChanged,
-    };
   }
 
   async deleteSecurityQuestion(userId: string): Promise<{ message: string }> {
