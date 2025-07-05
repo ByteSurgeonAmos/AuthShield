@@ -519,6 +519,7 @@ export class UsersController {
 
   @Get('profile')
   @UseGuards(ApiKeyGuard)
+   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('access-token')
   @ApiTags('User Management')
   @ApiOperation({
@@ -535,6 +536,7 @@ export class UsersController {
     description: 'Unauthorized - Invalid token',
   })
   async getProfile(@Request() req) {
+    const user = req.user
     return this.usersService.findOne(req.user.userId);
   }
 

@@ -702,8 +702,10 @@ export class UsersService {
         user.otpauth = secret.otpauth_url;
         user.twoFactorSecret = secret.base32;
         user.twoFactorMethod = method;
+        user.is2FaEnabled = true;
         await this.userRepository.save(user);
       }
+
       const qrCodeUrl = await qrcode.toDataURL(user.otpauth);
       return {
         secret: user.twoFactorSecret,
