@@ -16,6 +16,7 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { JwtAdminGuard } from './guards/jwt-admin.guard';
 import { SecurityAuditService } from './services/security-audit.service';
 import { NotificationService } from './services/notification.service';
+import { WalletValidationService } from './services/wallet-validation.service';
 import { HttpModule } from '@nestjs/axios';
 
 @Module({
@@ -38,7 +39,7 @@ import { HttpModule } from '@nestjs/axios';
       }),
     }),
     SmsModule,
-    HttpModule
+    HttpModule,
   ],
   controllers: [UsersController],
   providers: [
@@ -47,6 +48,7 @@ import { HttpModule } from '@nestjs/axios';
     JwtAdminGuard,
     SecurityAuditService,
     NotificationService,
+    WalletValidationService,
   ],
   exports: [
     UsersService,
@@ -55,6 +57,7 @@ import { HttpModule } from '@nestjs/axios';
     JwtAdminGuard,
     SecurityAuditService,
     NotificationService,
+    WalletValidationService,
   ],
 })
 export class UsersModule {}
