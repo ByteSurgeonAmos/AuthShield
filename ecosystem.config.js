@@ -22,10 +22,7 @@ module.exports = {
         TIARA_API_TOKEN:"eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiI1NzQiLCJvaWQiOjU3NCwidWlkIjoiZmJhNzdmNjEtM2ZkYy00YjFlLWI2MjAtM2I0OGI3MDg1ODhkIiwiYXBpZCI6NTQ4LCJpYXQiOjE3NDc5NDM0NzAsImV4cCI6MjA4Nzk0MzQ3MH0.FrXUlgMu_qjaNVMdtlVn6NYvinLoqkcFuHRGHvq19FF7vv7jeX9y8IQF8wGaOwKSRS5tzsxQv-4i-EbHcwbSQw",
         SMS_SENDER_ID: "CONNECT",
         FORCE_SYNC: "false",
-        
         TIARA_BASE_URL:"https://api2.tiaraconnect.io/api/messaging/sendsms",
-        
-        #WALLETS
         BTC_WALLET_API_URL:"http://165.73.244.226:8090/api/v1/wallets",
         BTC_API_TOKEN:"92fKX7pLm3qZD8vN4Yt1WsJg5RBhUoAV",
         ADMIN_DEFAULT_PASSWORD: "xmobit@12345",
