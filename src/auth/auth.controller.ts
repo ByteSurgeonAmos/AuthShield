@@ -997,7 +997,7 @@ export class UsersController {
   @Get('search/by-email')
   @UseGuards(ApiKeyGuard)
   @ApiBearerAuth('access-token')
-  @ApiTags('Admin')
+  // @ApiTags('Admin')
   @ApiOperation({
     summary: 'Search user by email',
     description: 'Search for a user by email address (Admin only)',
