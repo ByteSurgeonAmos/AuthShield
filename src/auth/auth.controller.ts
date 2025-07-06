@@ -2272,4 +2272,19 @@ export class UsersController {
   async getWalletValidationStatus(): Promise<any> {
     return this.walletValidationService.getCronJobInfo();
   }
+  @Get('search/by-id')
+  @UseGuards(ApiKeyGuard)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({
+    summary: 'Search user by ID',
+    description: 'Search for a user by user ID (Admin only)',
+  })
+  @ApiQuery({
+    name: 'userId',
+    description: 'User ID to search for',
+    example: 'a1b2c3d4-e5f6-7g8h-9i0j-k1l2m3n4o5p6',
+  })
+  async searchById(@Query('userId') userId: string) {
+    return this.usersService.findOne(userId);
+  }
 }
