@@ -18,12 +18,12 @@ export class WalletValidationService {
   /**
    * Cron job that runs every 5 minutes for testing
    * For production: 0 2 * * * (Every day at 2:00 AM)
-   * Current: every 2 AM
+   * Current: DISABLED
    */
-  @Cron('0 2 * * *', {
-    name: 'wallet-validation-check',
-    timeZone: 'UTC',
-  })
+  // @Cron('0 2 * * *', {
+  //   name: 'wallet-validation-check',
+  //   timeZone: 'UTC',
+  // })
   async validateAllUserWallets(): Promise<void> {
     this.logger.log('🔍 Starting wallet validation cron job...');
 
