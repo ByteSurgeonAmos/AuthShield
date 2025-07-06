@@ -231,7 +231,6 @@ export class UsersService {
 
     const hashedPassword = await bcrypt.hash(createUserDto.password, 12);
 
-    // Generate 6-digit OTP for email verification
     const emailVerificationOTP = generateOtp(6, {
       digitsOnly: true,
       includeSpecialChars: false,
@@ -334,7 +333,6 @@ export class UsersService {
 
     await this.userRepository.save(user);
 
-    // Map imageUrl to profilePicUrl if provided
     const profilePicUrl =
       completeProfileDto.imageUrl || completeProfileDto.profilePicUrl;
 
@@ -343,13 +341,11 @@ export class UsersService {
       completeProfileDto.userBio ||
       profilePicUrl
     ) {
-      // Check if user details exist in the database
       let userDetails = await this.detailsRepository.findOne({
         where: { userId: user.userId },
       });
 
       if (!userDetails) {
-        // Create new details record
         userDetails = this.detailsRepository.create({
           userId: user.userId,
           country: completeProfileDto.country,
@@ -369,7 +365,6 @@ export class UsersService {
       }
     }
 
-    // Use the uploaded profile picture URL if provided, otherwise generate a random one
     const profileImageUrl =
       profilePicUrl || generateRandomProfileImage(user.username);
 
@@ -403,7 +398,6 @@ export class UsersService {
       throw new BadRequestException('Email is already verified');
     }
 
-    // Generate new 6-digit OTP
     const newVerificationOTP = generateOtp(6, {
       digitsOnly: true,
       includeSpecialChars: false,
