@@ -75,9 +75,11 @@ export class UsersService {
       where: { userId },
       relations: ['roles', 'details'],
     });
+
     if (!user) {
       throw new NotFoundException('User not found');
     }
+
     return user;
   }
 
@@ -229,7 +231,6 @@ export class UsersService {
 
     const hashedPassword = await bcrypt.hash(createUserDto.password, 12);
 
-    // Generate 6-digit OTP for email verification
     const emailVerificationOTP = generateOtp(6, {
       digitsOnly: true,
       includeSpecialChars: false,
@@ -332,7 +333,6 @@ export class UsersService {
 
     await this.userRepository.save(user);
 
-    // Map imageUrl to profilePicUrl if provided
     const profilePicUrl =
       completeProfileDto.imageUrl || completeProfileDto.profilePicUrl;
 
@@ -341,13 +341,11 @@ export class UsersService {
       completeProfileDto.userBio ||
       profilePicUrl
     ) {
-      // Check if user details exist in the database
       let userDetails = await this.detailsRepository.findOne({
         where: { userId: user.userId },
       });
 
       if (!userDetails) {
-        // Create new details record
         userDetails = this.detailsRepository.create({
           userId: user.userId,
           country: completeProfileDto.country,
@@ -367,7 +365,6 @@ export class UsersService {
       }
     }
 
-    // Use the uploaded profile picture URL if provided, otherwise generate a random one
     const profileImageUrl =
       profilePicUrl || generateRandomProfileImage(user.username);
 
@@ -401,7 +398,6 @@ export class UsersService {
       throw new BadRequestException('Email is already verified');
     }
 
-    // Generate new 6-digit OTP
     const newVerificationOTP = generateOtp(6, {
       digitsOnly: true,
       includeSpecialChars: false,
@@ -692,20 +688,23 @@ export class UsersService {
     const user = await this.findOne(userId);
 
     if (method === TwoFactorMethod.AUTHENTICATOR) {
-      const secret = speakeasy.generateSecret({
-        name: `xmobit (${user.email})`,
-        issuer: 'xmobit',
-        length: 32,
-      });
+      if (user.twoFactorMethod != TwoFactorMethod.AUTHENTICATOR) {
+        const secret = speakeasy.generateSecret({
+          name: `xmobit (${user.email})`,
+          issuer: 'xmobit',
+          length: 32,
+        });
 
-      const qrCodeUrl = await qrcode.toDataURL(secret.otpauth_url);
+        user.otpauth = secret.otpauth_url;
+        user.twoFactorSecret = secret.base32;
+        user.twoFactorMethod = method;
+        user.is2FaEnabled = true;
+        await this.userRepository.save(user);
+      }
 
-      user.twoFactorSecret = secret.base32;
-      user.twoFactorMethod = method;
-      await this.userRepository.save(user);
-
+      const qrCodeUrl = await qrcode.toDataURL(user.otpauth);
       return {
-        secret: secret.base32,
+        secret: user.twoFactorSecret,
         qrCode: qrCodeUrl,
         message:
           'Scan the QR code with your authenticator app and enter the code to verify',
@@ -1133,7 +1132,7 @@ export class UsersService {
         userId: user.userId,
         email: user.email,
         purpose: '2FA_VERIFICATION',
-        exp: Math.floor(Date.now() / 1000) + 10 * 60,
+        // exp: Math.floor(Date.now() / 1000) + 10 * 60,
       };
 
       const temporaryToken = this.jwtService.sign(temporaryPayload);
@@ -1199,13 +1198,15 @@ export class UsersService {
     temporaryToken: string,
     twoFactorCode: string,
     loginDetails: any,
-  ): Promise<{ accesstoken: string; user: any; message: string }> {
+  ): Promise<{
+    accesstoken: string;
+    token: string;
+    user: any;
+    message: string;
+    verified: boolean;
+  }> {
     try {
       const decoded = this.jwtService.verify(temporaryToken);
-
-      if (decoded.purpose !== '2FA_VERIFICATION') {
-        throw new UnauthorizedException('Invalid temporary token');
-      }
 
       const user = await this.findOne(decoded.userId);
 
@@ -1238,8 +1239,11 @@ export class UsersService {
       const loginResult = await this.completeLogin(user, loginDetails);
 
       return {
-        ...loginResult,
+        accesstoken: loginResult.accesstoken,
+        token: loginResult.accesstoken,
+        user: loginResult.user,
         message: '2FA verified successfully. Login completed.',
+        verified: true,
       };
     } catch (error) {
       if (
@@ -1505,12 +1509,23 @@ export class UsersService {
 
   // =============== THIRD PARTY AUTHENTICATION ===============
 
-  async thirdPartyAuth(req: any): Promise<any> {
+  async thirdPartyAuth(req: {
+    email: string;
+    image: string;
+    name: string;
+    authProvider: string;
+  }): Promise<{
+    statusCode?: number;
+    message?: string;
+    error?: string;
+    accesstoken?: string;
+    user?: any;
+  }> {
     try {
-      const email = req.user?.email;
-      const fullname = req.user?.name;
-      const auth_provider = req.user?.authProvider;
-      const profile_url = req.user?.image;
+      const email = req?.email;
+      const fullname = req?.name;
+      const auth_provider = req?.authProvider;
+      const profile_url = req?.image;
 
       if (!email) {
         throw new BadRequestException(
@@ -1519,7 +1534,13 @@ export class UsersService {
       }
 
       const userExists = await this.findByEmail(email);
-
+      if (!userExists) {
+        // Do not register the user
+        return {
+          statusCode: 404,
+          message: 'User not found. Please register first.',
+        };
+      }
       if (userExists) {
         if (!userExists.isAccountActive) {
           return {
@@ -1529,28 +1550,19 @@ export class UsersService {
           };
         }
 
-        // Check for BTC wallet
+        // Update user login details
+        userExists.failedLoginAttempts = 0;
+        userExists.accountLockedUntil = null;
+        userExists.lastLogin = new Date();
+        await this.userRepository.save(userExists);
 
-        // Generate random profile image if user doesn't have one
-        const profileImage =
-          profile_url || generateRandomProfileImage(userExists.username);
-
-        const tokenPayload = {
+        // Record security event
+        await this.securityAuditService.recordSecurityEvent({
+          eventType: 'SUCCESSFUL_LOGIN',
           userId: userExists.userId,
-          userEmail: userExists.email,
-          userName: userExists.username,
-          iat: Math.floor(Date.now() / 1000),
-          profile_url: profileImage,
-          role: userExists.roles?.map((r) => r.roles) || ['user'],
-        };
-
-        // Send login notification
-        await this.sendLoginNotification(userExists, {
-          ip: req.ip,
-          userAgent: req.get('User-Agent'),
+          email: userExists.email,
+          additionalData: { authProvider: auth_provider },
         });
-
-        const token = this.jwtService.sign(tokenPayload);
 
         // Create notification for social login
         await this.notificationService.createAuthNotification(
@@ -1562,46 +1574,90 @@ export class UsersService {
           'low',
         );
 
+        const userRoles = userExists.roles?.map((role) => role.roles) || [
+          UserRoleType.USER,
+        ];
+
+        const payload = {
+          userId: userExists.userId,
+          email: userExists.email,
+          username: userExists.username,
+          roles: userRoles,
+          emailVerified: userExists.emailVerified,
+          phoneVerified: userExists.phoneNoVerified,
+        };
+
         return {
-          statusCode: 200,
-          message: 'Login success. Redirecting...',
-          data: token,
+          accesstoken: this.jwtService.sign(payload),
+          user: {
+            userId: userExists.userId,
+            username: userExists.username,
+            email: userExists.email,
+            roles: userRoles,
+            emailVerified: userExists.emailVerified,
+            phoneVerified: userExists.phoneNoVerified,
+            isAccountActive: userExists.isAccountActive,
+            completedTrades: userExists.completedTrades,
+            details: userExists.details,
+            is2FaEnabled: userExists.is2FaEnabled,
+            twoFactorMethod: userExists.twoFactorMethod,
+          },
         };
       } else {
-        // Register new user with social provider
-        await this.registerUsersWithGoogleFacebook(
-          email,
-          auth_provider,
-          fullname,
-          profile_url,
-        );
-
-        const newUser = await this.findByEmail(email);
-        const profileImage =
-          profile_url || generateRandomProfileImage(newUser.username);
-
-        const tokenPayload = {
-          userId: newUser.userId,
-          userEmail: newUser.email,
-          userName: newUser.username,
-          iat: Math.floor(Date.now() / 1000),
-          profile_url: profileImage,
-          role: newUser.roles?.map((r) => r.roles) || ['user'],
-        };
-
-        const token = this.jwtService.sign(tokenPayload);
-
+        // await this.registerUsersWithGoogleFacebook(
+        //   email,
+        //   auth_provider,
+        //   fullname,
+        //   profile_url,
+        // );
+        // const newUser = await this.findByEmail(email);
+        // // Update user login details for new user
+        // newUser.lastLogin = new Date();
+        // await this.userRepository.save(newUser);
+        // // Record security event for new user registration
+        // await this.securityAuditService.recordSecurityEvent({
+        //   eventType: 'SUCCESSFUL_LOGIN',
+        //   userId: newUser.userId,
+        //   email: newUser.email,
+        //   additionalData: {
+        //     authProvider: auth_provider,
+        //     newRegistration: true,
+        //   },
+        // });
+        // const userRoles = newUser.roles?.map((role) => role.roles) || [
+        //   UserRoleType.USER,
+        // ];
+        // const payload = {
+        //   userId: newUser.userId,
+        //   email: newUser.email,
+        //   username: newUser.username,
+        //   roles: userRoles,
+        //   emailVerified: newUser.emailVerified,
+        //   phoneVerified: newUser.phoneNoVerified,
+        // };
         // Send signup confirmation
-        await this.sendVerificationEmail(
-          newUser.email,
-          newUser.emailVerificationToken,
-        );
-
-        return {
-          statusCode: 201,
-          message: 'User registered.',
-          data: token,
-        };
+        // if (newUser.emailVerificationToken) {
+        //   await this.sendVerificationEmail(
+        //     newUser.email,
+        //     newUser.emailVerificationToken,
+        //   );
+        // }
+        // return {
+        //   accesstoken: this.jwtService.sign(payload),
+        //   user: {
+        //     userId: newUser.userId,
+        //     username: newUser.username,
+        //     email: newUser.email,
+        //     roles: userRoles,
+        //     emailVerified: newUser.emailVerified,
+        //     phoneVerified: newUser.phoneNoVerified,
+        //     isAccountActive: newUser.isAccountActive,
+        //     completedTrades: newUser.completedTrades,
+        //     details: newUser.details,
+        //     is2FaEnabled: newUser.is2FaEnabled,
+        //     twoFactorMethod: newUser.twoFactorMethod,
+        //   },
+        // };
       }
     } catch (error: any) {
       console.error('Error during third-party authentication:', error);
@@ -1613,47 +1669,47 @@ export class UsersService {
     }
   }
 
-  async registerUsersWithGoogleFacebook(
-    email: string,
-    authProvider: string,
-    fullname?: string,
-    profileUrl?: string,
-  ): Promise<User> {
-    const randomUsername = await ensureUniqueUsername(this.userRepository);
+  // async registerUsersWithGoogleFacebook(
+  //   email: string,
+  //   authProvider: string,
+  //   fullname?: string,
+  //   profileUrl?: string,
+  // ): Promise<User> {
+  //   const randomUsername = await ensureUniqueUsername(this.userRepository);
 
-    const userId = uuidv4();
+  //   const userId = uuidv4();
 
-    const user = this.userRepository.create({
-      userId,
-      username: randomUsername,
-      email: email,
-      password: 'SOCIAL_LOGIN',
-      emailVerificationToken: null,
-      emailVerificationExpires: null,
-      dateRegistrated: new Date().toISOString(),
-      authProvider: authProvider,
-      emailVerified: true,
-      isVerified: true,
-    });
+  //   const user = this.userRepository.create({
+  //     userId,
+  //     username: randomUsername,
+  //     email: email,
+  //     password: 'SOCIAL_LOGIN',
+  //     emailVerificationToken: null,
+  //     emailVerificationExpires: null,
+  //     dateRegistrated: new Date().toISOString(),
+  //     authProvider: authProvider,
+  //     emailVerified: true,
+  //     isVerified: true,
+  //   });
 
-    const savedUser = await this.userRepository.save(user);
+  //   const savedUser = await this.userRepository.save(user);
 
-    const userRole = this.roleRepository.create({
-      userId: savedUser.userId,
-      roles: UserRoleType.USER,
-    });
-    await this.roleRepository.save(userRole);
+  //   const userRole = this.roleRepository.create({
+  //     userId: savedUser.userId,
+  //     roles: UserRoleType.USER,
+  //   });
+  //   await this.roleRepository.save(userRole);
 
-    if (fullname) {
-      const userDetails = this.detailsRepository.create({
-        userId: savedUser.userId,
-        fullname: fullname,
-      });
-      await this.detailsRepository.save(userDetails);
-    }
+  //   if (fullname) {
+  //     const userDetails = this.detailsRepository.create({
+  //       userId: savedUser.userId,
+  //       fullname: fullname,
+  //     });
+  //     await this.detailsRepository.save(userDetails);
+  //   }
 
-    return savedUser;
-  }
+  //   return savedUser;
+  // }
 
   // =============== SECURITY QUESTIONS METHODS ===============
 
@@ -1785,18 +1841,23 @@ export class UsersService {
   async getSecurityQuestion(
     userId: string,
   ): Promise<{ question: string; isChanged: boolean }> {
-    const securityQuestion = await this.securityQuestionRepository.findOne({
-      where: { userId },
-    });
+    try {
+      const securityQuestion = await this.securityQuestionRepository.findOne({
+        where: { userId },
+      });
 
-    if (!securityQuestion) {
-      throw new NotFoundException('No security question found for this user');
+      if (!securityQuestion) {
+        throw new NotFoundException('No security question found for this user');
+      }
+
+      return {
+        question: securityQuestion.question,
+        isChanged: securityQuestion.isChanged,
+      };
+    } catch (error) {
+      console.error('Error in getSecurityQuestion service:', error.message);
+      throw error;
     }
-
-    return {
-      question: securityQuestion.question,
-      isChanged: securityQuestion.isChanged,
-    };
   }
 
   async deleteSecurityQuestion(userId: string): Promise<{ message: string }> {

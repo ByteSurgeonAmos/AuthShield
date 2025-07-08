@@ -18,7 +18,7 @@ async function bootstrap() {
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
-      forbidNonWhitelisted: true,
+      forbidNonWhitelisted: false,
       transform: true,
     }),
   );
@@ -36,6 +36,15 @@ async function bootstrap() {
         bearerFormat: 'JWT',
       },
       'access-token',
+    )
+    .addApiKey(
+      {
+        type: 'apiKey',
+        name: 'X-API-Key',
+        in: 'header',
+        description: 'API key for service-to-service authentication',
+      },
+      'api-key',
     )
     .addTag('Authentication', 'User authentication and login endpoints')
     .addTag('User Management', 'User CRUD operations and profile management')

@@ -20,6 +20,7 @@ import {
   ApiParam,
   ApiQuery,
   ApiBody,
+  ApiSecurity,
 } from '@nestjs/swagger';
 import { UsersService } from './auth.service';
 import { SimpleRegisterDto } from './dto/simple-register.dto';
@@ -56,11 +57,20 @@ import {
 } from './dto/response-models.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { JwtAdminGuard } from './guards/jwt-admin.guard';
+import { ApiKeyGuard } from './guards/api-key.guard';
+import { JwtOrApiKeyGuard } from './guards/jwt-or-api-key.guard';
+import { AdminOrApiKeyGuard } from './guards/admin-or-api-key.guard';
+import { JwtAndApiKeyGuard } from './guards/jwt-and-api-key.guard';
+import { AdminJwtAndApiKeyGuard } from './guards/admin-jwt-and-api-key.guard';
+import { WalletValidationService } from './services/wallet-validation.service';
 
 @ApiTags('Authentication')
 @Controller('users')
 export class UsersController {
-  constructor(private readonly usersService: UsersService) {}
+  constructor(
+    private readonly usersService: UsersService,
+    private readonly walletValidationService: WalletValidationService,
+  ) {}
 
   // =============== AUTHENTICATION ENDPOINTS ===============
 
@@ -227,7 +237,6 @@ export class UsersController {
     );
   }
 
-  // Keep the old token verification for backward compatibility (deprecated)
   @Post('verify-email')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
@@ -484,7 +493,7 @@ export class UsersController {
   // =============== USER MANAGEMENT ENDPOINTS ===============
 
   @Get()
-  @UseGuards(JwtAdminGuard)
+  @UseGuards(ApiKeyGuard)
   @ApiBearerAuth('access-token')
   @ApiTags('User Management')
   @ApiOperation({
@@ -526,11 +535,52 @@ export class UsersController {
     description: 'Unauthorized - Invalid token',
   })
   async getProfile(@Request() req) {
+    const user = req.user;
     return this.usersService.findOne(req.user.userId);
   }
 
+  @Get('security-question')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @ApiTags('Security')
+  @ApiOperation({
+    summary: 'Get security question',
+    description: "Retrieve the user's security question (without answer)",
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Security question details',
+    schema: {
+      type: 'object',
+      properties: {
+        question: {
+          type: 'string',
+          example: 'What was the name of your first pet?',
+        },
+        isChanged: { type: 'boolean', example: false },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'No security question set',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized - Invalid token',
+  })
+  async getSecurityQuestion(@Request() req) {
+    try {
+      return await this.usersService.getSecurityQuestion(req.user.userId);
+    } catch (error) {
+      console.error('Service call failed:', error.message);
+      console.error('Error stack:', error.stack);
+      throw error;
+    }
+  }
+
   @Get(':id')
-  @UseGuards(JwtAdminGuard)
+  @UseGuards(ApiKeyGuard)
   @ApiBearerAuth('access-token')
   @ApiTags('User Management')
   @ApiOperation({
@@ -566,12 +616,12 @@ export class UsersController {
   }
 
   @Patch(':id')
-  @UseGuards(JwtAdminGuard)
+  @UseGuards(ApiKeyGuard)
   async update(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto) {
     return this.usersService.update(id, updateUserDto);
   }
   @Delete(':id')
-  @UseGuards(JwtAdminGuard)
+  @UseGuards(ApiKeyGuard)
   @ApiBearerAuth('access-token')
   @ApiTags('User Management')
   @ApiOperation({
@@ -604,7 +654,7 @@ export class UsersController {
   // =============== ROLE MANAGEMENT ENDPOINTS ===============
 
   @Post(':id/assign-role')
-  @UseGuards(JwtAdminGuard)
+  @UseGuards(ApiKeyGuard)
   @ApiBearerAuth('access-token')
   @ApiTags('Admin')
   @ApiOperation({
@@ -653,7 +703,7 @@ export class UsersController {
   }
 
   @Delete(':id/remove-role')
-  @UseGuards(JwtAdminGuard)
+  @UseGuards(ApiKeyGuard)
   @ApiBearerAuth('access-token')
   @ApiTags('Admin')
   @ApiOperation({
@@ -696,7 +746,7 @@ export class UsersController {
     return this.usersService.removeRole(id, role as any);
   }
   @Get('analytics/overview')
-  @UseGuards(JwtAdminGuard)
+  @UseGuards(ApiKeyGuard)
   @ApiBearerAuth('access-token')
   @ApiTags('Analytics')
   @ApiOperation({
@@ -718,7 +768,7 @@ export class UsersController {
   }
 
   @Get('analytics/logins')
-  @UseGuards(JwtAdminGuard)
+  @UseGuards(ApiKeyGuard)
   @ApiBearerAuth('access-token')
   @ApiTags('Analytics')
   @ApiOperation({
@@ -739,7 +789,7 @@ export class UsersController {
   }
 
   @Get('analytics/security')
-  @UseGuards(JwtAdminGuard)
+  @UseGuards(ApiKeyGuard)
   @ApiBearerAuth('access-token')
   @ApiTags('Analytics')
   @ApiOperation({
@@ -761,7 +811,7 @@ export class UsersController {
   }
 
   @Get('analytics/dashboard')
-  @UseGuards(JwtAdminGuard)
+  @UseGuards(ApiKeyGuard)
   @ApiBearerAuth('access-token')
   @ApiTags('Analytics')
   @ApiOperation({
@@ -804,7 +854,7 @@ export class UsersController {
   // =============== ADMIN UTILITIES ===============
 
   @Post('bulk-actions/activate')
-  @UseGuards(JwtAdminGuard)
+  @UseGuards(ApiKeyGuard)
   @ApiBearerAuth('access-token')
   @ApiTags('Admin')
   @ApiOperation({
@@ -849,7 +899,7 @@ export class UsersController {
   }
 
   @Post('bulk-actions/deactivate')
-  @UseGuards(JwtAdminGuard)
+  @UseGuards(ApiKeyGuard)
   @ApiBearerAuth('access-token')
   @ApiTags('Admin')
   @ApiOperation({
@@ -895,7 +945,7 @@ export class UsersController {
   }
 
   @Post('bulk-actions/reset-failed-attempts')
-  @UseGuards(JwtAdminGuard)
+  @UseGuards(ApiKeyGuard)
   @ApiBearerAuth('access-token')
   @ApiTags('Admin')
   @ApiOperation({
@@ -945,9 +995,9 @@ export class UsersController {
   // =============== SEARCH AND FILTER ENDPOINTS ===============
 
   @Get('search/by-email')
-  @UseGuards(JwtAdminGuard)
+  @UseGuards(ApiKeyGuard)
   @ApiBearerAuth('access-token')
-  @ApiTags('Admin')
+  // @ApiTags('Admin')
   @ApiOperation({
     summary: 'Search user by email',
     description: 'Search for a user by email address (Admin only)',
@@ -975,7 +1025,7 @@ export class UsersController {
   }
 
   @Get('filter/unverified')
-  @UseGuards(JwtAdminGuard)
+  @UseGuards(ApiKeyGuard)
   @ApiBearerAuth('access-token')
   @ApiTags('Admin')
   @ApiOperation({
@@ -998,7 +1048,7 @@ export class UsersController {
   }
 
   @Get('filter/locked')
-  @UseGuards(JwtAdminGuard)
+  @UseGuards(ApiKeyGuard)
   @ApiBearerAuth('access-token')
   @ApiTags('Admin')
   @ApiOperation({
@@ -1026,7 +1076,7 @@ export class UsersController {
   }
 
   @Get('filter/inactive')
-  @UseGuards(JwtAdminGuard)
+  @UseGuards(ApiKeyGuard)
   @ApiBearerAuth('access-token')
   @ApiTags('Admin')
   @ApiOperation({
@@ -1049,7 +1099,7 @@ export class UsersController {
   }
 
   @Get('filter/2fa-enabled')
-  @UseGuards(JwtAdminGuard)
+  @UseGuards(ApiKeyGuard)
   @ApiBearerAuth('access-token')
   @ApiTags('Admin')
   @ApiOperation({
@@ -1074,7 +1124,7 @@ export class UsersController {
   // =============== SECURITY AUDIT ENDPOINTS ===============
 
   @Get('security/audit-logs')
-  @UseGuards(JwtAdminGuard)
+  @UseGuards(ApiKeyGuard)
   @ApiBearerAuth('access-token')
   @ApiTags('Security')
   @ApiOperation({
@@ -1128,7 +1178,7 @@ export class UsersController {
   }
 
   @Get('security/audit-logs/by-type/:eventType')
-  @UseGuards(JwtAdminGuard)
+  @UseGuards(ApiKeyGuard)
   @ApiBearerAuth('access-token')
   @ApiTags('Security')
   @ApiOperation({
@@ -1166,7 +1216,7 @@ export class UsersController {
   }
 
   @Get('security/audit-logs/date-range')
-  @UseGuards(JwtAdminGuard)
+  @UseGuards(ApiKeyGuard)
   @ApiBearerAuth('access-token')
   @ApiTags('Security')
   @ApiOperation({
@@ -1357,7 +1407,7 @@ export class UsersController {
   }
 
   @Get('admin/notifications/all')
-  @UseGuards(JwtAdminGuard)
+  @UseGuards(ApiKeyGuard)
   @ApiBearerAuth('access-token')
   @ApiTags('Notifications')
   @ApiOperation({
@@ -1385,7 +1435,7 @@ export class UsersController {
     );
   }
   @Post('admin/notifications/broadcast')
-  @UseGuards(JwtAdminGuard)
+  @UseGuards(ApiKeyGuard)
   @ApiBearerAuth('access-token')
   @ApiTags('Notifications')
   @ApiOperation({
@@ -1460,7 +1510,7 @@ export class UsersController {
   // =============== ADVANCED SECURITY ENDPOINTS ===============
 
   @Post('security/manual-lockout/:id')
-  @UseGuards(JwtAdminGuard)
+  @UseGuards(ApiKeyGuard)
   @ApiBearerAuth('access-token')
   @ApiTags('Security')
   @ApiOperation({
@@ -1517,7 +1567,7 @@ export class UsersController {
   }
 
   @Post('security/unlock-account/:id')
-  @UseGuards(JwtAdminGuard)
+  @UseGuards(ApiKeyGuard)
   @ApiBearerAuth('access-token')
   @ApiTags('Security')
   @ApiOperation({
@@ -1563,7 +1613,7 @@ export class UsersController {
     return this.usersService.unlockAccount(id, body.reason);
   }
   @Get('security/suspicious-activities')
-  @UseGuards(JwtAdminGuard)
+  @UseGuards(ApiKeyGuard)
   @ApiBearerAuth('access-token')
   @ApiTags('Security')
   @ApiOperation({
@@ -1605,7 +1655,7 @@ export class UsersController {
   }
 
   @Get('security/failed-login-patterns')
-  @UseGuards(JwtAdminGuard)
+  @UseGuards(ApiKeyGuard)
   @ApiBearerAuth('access-token')
   @ApiTags('Security')
   @ApiOperation({
@@ -1730,40 +1780,6 @@ export class UsersController {
       req.user.userId,
       updateSecurityQuestionDto,
     );
-  }
-
-  @Get('security-question')
-  @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth('access-token')
-  @ApiTags('Security')
-  @ApiOperation({
-    summary: 'Get security question',
-    description: "Retrieve the user's security question (without answer)",
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Security question details',
-    schema: {
-      type: 'object',
-      properties: {
-        question: {
-          type: 'string',
-          example: 'What was the name of your first pet?',
-        },
-        isChanged: { type: 'boolean', example: false },
-      },
-    },
-  })
-  @ApiResponse({
-    status: 404,
-    description: 'No security question set',
-  })
-  @ApiResponse({
-    status: 401,
-    description: 'Unauthorized - Invalid token',
-  })
-  async getSecurityQuestion(@Request() req) {
-    return this.usersService.getSecurityQuestion(req.user.userId);
   }
 
   @Delete('security-question')
@@ -2020,8 +2036,8 @@ export class UsersController {
 
   @Post('third-party-auth')
   @HttpCode(HttpStatus.OK)
-  @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth('access-token')
+  @UseGuards(ApiKeyGuard)
+  // @ApiBearerAuth('access-token')
   @ApiOperation({
     summary: 'Link third party authentication',
     description: 'Link third party provider account to user account',
@@ -2030,16 +2046,27 @@ export class UsersController {
     schema: {
       type: 'object',
       properties: {
-        provider: {
+        email: {
           type: 'string',
+          format: 'email',
+          example: 'amos@email.com',
+        },
+        image: {
+          type: 'string',
+          format: 'uri',
+          example: 'https://example.com/image.jpg',
+        },
+        name: {
+          type: 'string',
+          example: 'Amos Smith',
+        },
+        authProvider: {
+          type: 'string',
+          // enum: ['google', 'facebook', 'github'],
           example: 'google',
         },
-        accessToken: {
-          type: 'string',
-          example: 'third-party-access-token',
-        },
       },
-      required: ['provider', 'accessToken'],
+      required: ['email', 'image', 'name', 'authProvider'],
     },
   })
   @ApiResponse({
@@ -2048,14 +2075,16 @@ export class UsersController {
     type: MessageResponseDto,
   })
   async linkThirdPartyAuth(
-    @Request() req,
-    @Body() body: { provider: string; accessToken: string },
+    // @Request() req,
+    @Body()
+    body: {
+      email: string;
+      image: string;
+      name: string;
+      authProvider: string;
+    },
   ) {
-    return this.usersService.linkThirdPartyAuth(
-      req.user.userId,
-      body.provider,
-      body.accessToken,
-    );
+    return this.usersService.thirdPartyAuth(body);
   }
 
   // =============== PAYMENT DETAILS ENDPOINTS ===============
@@ -2172,5 +2201,90 @@ export class UsersController {
       timestamp: new Date().toISOString(),
       service: 'AuthShield',
     };
+  }
+
+  // =============== API KEY TEST ENDPOINT ===============
+
+  @Get('test/api-key')
+  @UseGuards(ApiKeyGuard)
+  @ApiSecurity('api-key')
+  @ApiTags('System')
+  @ApiOperation({
+    summary: 'Test API key authentication',
+    description: 'Test endpoint to verify API key authentication is working',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'API key authentication successful',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Invalid or missing API key',
+  })
+  async testApiKey() {
+    return {
+      status: 'success',
+      message: 'API key authentication is working correctly',
+      timestamp: new Date().toISOString(),
+      service: 'AuthShield',
+    };
+  }
+
+  // =============== WALLET VALIDATION ENDPOINTS ===============
+
+  @Post('validate-wallets')
+  @UseGuards(JwtAdminGuard)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Manually trigger wallet validation',
+    description:
+      'Validate all user wallets and create missing ones (Admin only)',
+  })
+  @ApiQuery({
+    name: 'userId',
+    required: false,
+    description: 'Optional user ID to validate specific user wallets',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Wallet validation completed successfully',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized - Admin access required',
+  })
+  async validateWallets(@Query('userId') userId?: string): Promise<any> {
+    return await this.walletValidationService.manualWalletValidation(userId);
+  }
+
+  @Get('wallet-validation/status')
+  @UseGuards(JwtAdminGuard)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Get wallet validation cron job status',
+    description:
+      'Get information about the wallet validation cron job (Admin only)',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Cron job information retrieved successfully',
+  })
+  async getWalletValidationStatus(): Promise<any> {
+    return this.walletValidationService.getCronJobInfo();
+  }
+  @Get('search/by-id')
+  @UseGuards(ApiKeyGuard)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({
+    summary: 'Search user by ID',
+    description: 'Search for a user by user ID (Admin only)',
+  })
+  @ApiQuery({
+    name: 'userId',
+    description: 'User ID to search for',
+    example: 'a1b2c3d4-e5f6-7g8h-9i0j-k1l2m3n4o5p6',
+  })
+  async searchById(@Query('userId') userId: string) {
+    return this.usersService.findOne(userId);
   }
 }
