@@ -28,13 +28,11 @@ export class ApiKeyGuard implements CanActivate {
       throw new UnauthorizedException('Invalid API key');
     }
 
-    // Set a flag to identify this as an API key authenticated request
     request.isApiKeyAuth = true;
     return true;
   }
 
   private extractApiKey(request: any): string | null {
-    // Check multiple headers for API key
     const apiKeyHeader = request.headers['x-api-key'];
     const authHeader = request.headers['authorization'];
 
@@ -42,7 +40,6 @@ export class ApiKeyGuard implements CanActivate {
       return apiKeyHeader;
     }
 
-    // Check if Authorization header contains API key (format: "ApiKey your-api-key")
     if (authHeader && authHeader.startsWith('ApiKey ')) {
       return authHeader.substring(7);
     }
