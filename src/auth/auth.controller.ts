@@ -34,6 +34,7 @@ import {
   VerifyEmailOTPDto,
 } from './dto/verify-email-otp.dto';
 import { SendPhoneOTPDto, VerifyPhoneOTPDto } from './dto/phone-otp.dto';
+import { SendSmsDto } from './dto/send-sms.dto';
 import { AnalyticsQueryDto } from './dto/analytics.dto';
 import {
   SetSecurityQuestionDto,
@@ -2286,5 +2287,47 @@ export class UsersController {
   })
   async searchById(@Query('userId') userId: string) {
     return this.usersService.findOne(userId);
+  }
+
+  // =============== SMS ENDPOINTS ===============
+
+  @Post('send-sms')
+  @UseGuards(ApiKeyGuard)
+  @ApiBearerAuth('access-token')
+  @ApiTags('SMS')
+  @ApiOperation({
+    summary: 'Send SMS to user',
+    description: 'Send SMS message to user using their user ID (Admin only)',
+  })
+  @ApiBody({
+    type: SendSmsDto,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'SMS sent successfully',
+    type: MessageResponseDto,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'User does not have a phone number configured',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'User not found',
+  })
+  @ApiResponse({
+    status: 500,
+    description: 'Failed to send SMS',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Admin access required',
+  })
+  @HttpCode(HttpStatus.OK)
+  async sendSmsToUser(@Body() sendSmsDto: SendSmsDto) {
+    return this.usersService.sendSmsToUser(
+      sendSmsDto.userId,
+      sendSmsDto.message,
+    );
   }
 }
