@@ -2891,4 +2891,66 @@ export class UsersService {
       console.error('Failed to send welcome email:', error);
     }
   }
+
+  async sendSmsToUser(
+    userId: string,
+    message: string,
+  ): Promise<{
+    statusCode: number;
+    message: string;
+  }> {
+    try {
+      const user = await this.findOne(userId);
+
+      if (!user.phoneNumber) {
+        return {
+          statusCode: 400,
+          message: 'User does not have a phone number configured',
+        };
+      }
+
+      await this.smsService.sendSms(
+        user.phoneNumber,
+        message,
+        user.countryCode,
+      );
+
+      await this.securityAuditService.recordSecurityEvent({
+        eventType: 'SMS_SENT',
+        userId: user.userId,
+        additionalData: {
+          phoneNumber: user.phoneNumber,
+          messageLength: message.length,
+        },
+        ipAddress: null,
+        userAgent: null,
+      });
+
+      return {
+        statusCode: 200,
+        message: 'SMS sent successfully',
+      };
+    } catch (error) {
+      console.error('Error sending SMS to user:', error);
+
+      if (error instanceof NotFoundException) {
+        return {
+          statusCode: 404,
+          message: 'User not found',
+        };
+      }
+
+      if (error?.response?.data?.error) {
+        return {
+          statusCode: 500,
+          message: `Failed to send SMS: ${error.response.data.error}`,
+        };
+      }
+
+      return {
+        statusCode: 500,
+        message: 'Failed to send SMS',
+      };
+    }
+  }
 }
