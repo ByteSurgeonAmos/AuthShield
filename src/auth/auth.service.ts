@@ -2714,9 +2714,7 @@ export class UsersService {
   }
 
   async getSecurityQuestionByEmail(email: string): Promise<{
-    statusCode: number;
-    message?: string;
-    data?: any;
+    question: string;
   }> {
     try {
       const user = await this.userRepository.findOne({
@@ -2724,10 +2722,7 @@ export class UsersService {
       });
 
       if (!user) {
-        return {
-          statusCode: 404,
-          message: 'User not found',
-        };
+        throw new NotFoundException('User not found');
       }
 
       const securityQuestion = await this.securityQuestionRepository.findOne({
@@ -2735,23 +2730,17 @@ export class UsersService {
       });
 
       if (!securityQuestion) {
-        return {
-          statusCode: 404,
-          message: 'No security question found for this user',
-        };
+        throw new NotFoundException('No security question found for this user');
       }
 
       return {
-        statusCode: 200,
-        data: {
-          question: securityQuestion.question,
-        },
+        question: securityQuestion.question,
       };
     } catch (error) {
-      return {
-        statusCode: 500,
-        message: 'Failed to retrieve security question',
-      };
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      throw new BadRequestException('Failed to retrieve security question');
     }
   }
 
@@ -2759,7 +2748,6 @@ export class UsersService {
     email: string,
     answer: string,
   ): Promise<{
-    statusCode: number;
     message: string;
   }> {
     try {
@@ -2768,10 +2756,7 @@ export class UsersService {
       });
 
       if (!user) {
-        return {
-          statusCode: 404,
-          message: 'User not found',
-        };
+        throw new NotFoundException('User not found');
       }
 
       const securityQuestion = await this.securityQuestionRepository.findOne({
@@ -2779,10 +2764,7 @@ export class UsersService {
       });
 
       if (!securityQuestion) {
-        return {
-          statusCode: 404,
-          message: 'No security question found for this user',
-        };
+        throw new NotFoundException('No security question found for this user');
       }
 
       const isAnswerCorrect = await bcrypt.compare(
@@ -2798,10 +2780,7 @@ export class UsersService {
           email: user.email,
         });
 
-        return {
-          statusCode: 400,
-          message: 'Incorrect security answer',
-        };
+        throw new BadRequestException('Incorrect security answer');
       }
 
       await this.securityAuditService.recordSecurityEvent({
@@ -2811,14 +2790,16 @@ export class UsersService {
       });
 
       return {
-        statusCode: 200,
         message: 'Security answer verified successfully',
       };
     } catch (error) {
-      return {
-        statusCode: 500,
-        message: 'Failed to verify security answer',
-      };
+      if (
+        error instanceof NotFoundException ||
+        error instanceof BadRequestException
+      ) {
+        throw error;
+      }
+      throw new BadRequestException('Failed to verify security answer');
     }
   }
 

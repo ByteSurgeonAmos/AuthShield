@@ -2139,6 +2139,15 @@ export class UsersController {
   @ApiResponse({
     status: 200,
     description: 'Security question retrieved successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        question: {
+          type: 'string',
+          example: 'What was the name of your first pet?',
+        },
+      },
+    },
   })
   @ApiResponse({
     status: 404,
