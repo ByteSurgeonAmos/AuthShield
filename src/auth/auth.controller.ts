@@ -2125,7 +2125,7 @@ export class UsersController {
 
   // =============== SECURITY QUESTIONS ENDPOINTS ===============
 
-  @Get('security-question')
+  @Get('security-question/by-email')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Get security question by email',
