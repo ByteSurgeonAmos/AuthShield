@@ -1,13 +1,11 @@
 const { Client } = require('pg');
 
 const sourceClient = new Client({
-  connectionString:
-    'postgresql://neondb_owner:npg_MFqY3DUf9AQE@ep-still-queen-a8ke00dw-pooler.eastus2.azure.neon.tech/neondb?sslmode=require&channel_binding=require',
+  connectionString: '',
 });
 
 const targetClient = new Client({
-  connectionString:
-    'postgresql://datahub-admin:D4t4HubAdmin_7r9KzP2w@165.73.244.226:5432/datahub',
+  connectionString: '',
 });
 
 async function getTables(client) {

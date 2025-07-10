@@ -15,8 +15,8 @@ export class NotificationService {
   private async getTransporter() {
     return nodemailer.createTransport({
       host: 'mail.privateemail.com',
-      secure: true,
-      port: 465,
+      secure: false,
+      port: 587,
       auth: {
         user: this.config.get<string>('NOTIFICATIONS_EMAIL'),
         pass: this.config.get<string>('EMAIL_PASS'),
