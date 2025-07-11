@@ -1719,7 +1719,7 @@ export class UsersController {
   }
 
   @Post('security-question/verify')
-  @UseGuards(JwtAuthGuard)
+  // @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('access-token')
   @ApiTags('Security')
   @ApiOperation({
@@ -1735,19 +1735,12 @@ export class UsersController {
     status: 400,
     description: 'Bad request - Invalid answer',
   })
-  @ApiResponse({
-    status: 401,
-    description: 'Unauthorized - Invalid token',
-  })
   @HttpCode(HttpStatus.OK)
   async verifySecurityQuestion(
     @Request() req,
     @Body() verifySecurityQuestionDto: VerifySecurityQuestionDto,
   ) {
-    return this.usersService.verifySecurityQuestion(
-      req.user.userId,
-      verifySecurityQuestionDto,
-    );
+    return this.usersService.verifySecurityQuestion(verifySecurityQuestionDto);
   }
 
   @Patch('security-question/update')
