@@ -1753,11 +1753,18 @@ export class UsersService {
   }
 
   async verifySecurityQuestion(
-    userId: string,
     verifySecurityQuestionDto: VerifySecurityQuestionDto,
   ): Promise<{ valid: boolean; message: string }> {
+    const user = await this.userRepository.findOne({
+      where: { email: verifySecurityQuestionDto.email },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
     const securityQuestion = await this.securityQuestionRepository.findOne({
-      where: { userId },
+      where: { userId: user.userId },
     });
 
     if (!securityQuestion) {
@@ -1775,8 +1782,8 @@ export class UsersService {
       eventType: isValid
         ? 'SECURITY_QUESTION_VERIFIED'
         : 'SECURITY_QUESTION_FAILED',
-      userId: userId,
-      email: (await this.findOne(userId)).email,
+      userId: user.userId,
+      email: user.email,
     });
 
     return {
