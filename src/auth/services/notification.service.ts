@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { AuthNotification } from '../entities/auth-notification.entity';
-import * as nodemailer from 'nodemailer';
+import { PostmarkEmailService } from '../../common/utils/postmark-email.util';
 
 @Injectable()
 export class NotificationService {
@@ -11,43 +11,45 @@ export class NotificationService {
     @InjectRepository(AuthNotification)
     private notificationRepository: Repository<AuthNotification>,
     private config: ConfigService,
+    private postmarkEmailService: PostmarkEmailService,
   ) {}
-  private async getTransporter() {
-    return nodemailer.createTransport({
-      host: 'mail.privateemail.com',
-      secure: false,
-      port: 587,
-      auth: {
-        user: this.config.get<string>('NOTIFICATIONS_EMAIL'),
-        pass: this.config.get<string>('EMAIL_PASS'),
-      },
-    });
-  }
-
   async sendLoginAttemptNotification(
     email: string,
     username: string,
   ): Promise<void> {
     try {
-      const transporter = await this.getTransporter();
-
       const emailContent = `
-        <h2>Failed Login Attempt Detected</h2>
-        <p>Hello ${username},</p>
-        <p>We detected a failed login attempt on your account.</p>
-        <ul>
-          <li><strong>Time:</strong> ${new Date().toLocaleString()}</li>
-          <li><strong>Email:</strong> ${email}</li>
-        </ul>
-        <p>If this wasn't you, please change your password immediately and contact support.</p>
-        <p>If this was you, please ensure you're using the correct credentials.</p>
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="background-color: #f8f9fa; padding: 30px; border-radius: 8px;">
+            <h2 style="color: #dc3545; margin-bottom: 20px;">⚠️ Failed Login Attempt Detected</h2>
+            <p style="color: #666; margin-bottom: 20px;">Hello ${username},</p>
+            <p style="color: #666; margin-bottom: 30px;">
+              We detected a failed login attempt on your account. Here are the details:
+            </p>
+            <div style="background-color: #fff; padding: 20px; border-radius: 4px; margin-bottom: 30px;">
+              <p style="margin: 10px 0; color: #333;"><strong>Time:</strong> ${new Date().toLocaleString()}</p>
+              <p style="margin: 10px 0; color: #333;"><strong>Email:</strong> ${email}</p>
+            </div>
+            <p style="color: #666; margin-bottom: 30px;">
+              If this wasn't you, please change your password immediately and contact support.
+            </p>
+            <p style="color: #666; margin-bottom: 30px;">
+              If this was you, please ensure you're using the correct credentials.
+            </p>
+            <p style="color: #666; margin-top: 20px; font-size: 14px;">
+              Best regards,<br>
+              The xmobit Team
+            </p>
+          </div>
+        </div>
       `;
 
-      await transporter.sendMail({
-        from: this.config.get<string>('NOTIFICATIONS_EMAIL'),
+      await this.postmarkEmailService.sendEmail({
         to: email,
         subject: 'Failed Login Attempt - xmobit',
-        html: emailContent,
+        htmlBody: emailContent,
+        tag: 'failed-login-attempt',
+        trackOpens: true,
       });
     } catch (error) {
       console.error('Failed to send login attempt notification:', error);
@@ -59,21 +61,7 @@ export class NotificationService {
     otpCode: string,
   ): Promise<void> {
     try {
-      const transporter = await this.getTransporter();
-
-      const emailContent = `
-        <h2>Account Verification Required</h2>
-        <p>Your verification code is: <strong>${otpCode}</strong></p>
-        <p>This code will expire in 30 minutes.</p>
-        <p>Please use this code to verify your account.</p>
-      `;
-
-      await transporter.sendMail({
-        from: this.config.get<string>('NOTIFICATIONS_EMAIL'),
-        to: email,
-        subject: 'Account Verification - xmobit',
-        html: emailContent,
-      });
+      await this.postmarkEmailService.sendVerificationEmail(email, otpCode);
     } catch (error) {
       console.error('Failed to send account verification email:', error);
     }
@@ -81,20 +69,33 @@ export class NotificationService {
 
   async sendOTPToEmail(email: string, otpCode: string): Promise<void> {
     try {
-      const transporter = await this.getTransporter();
-
       const emailContent = `
-        <h2>Your Login Verification Code</h2>
-        <p>Your verification code is: <strong>${otpCode}</strong></p>
-        <p>This code will expire in 30 minutes.</p>
-        <p>Enter this code to complete your login.</p>
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="background-color: #f8f9fa; padding: 30px; border-radius: 8px; text-align: center;">
+            <h2 style="color: #333; margin-bottom: 20px;">Your Login Verification Code</h2>
+            <p style="color: #666; margin-bottom: 30px;">
+              Use the code below to complete your login process:
+            </p>
+            <div style="background-color: #007bff; color: white; padding: 15px 30px; border-radius: 4px; font-size: 24px; font-weight: bold; letter-spacing: 3px; display: inline-block;">
+              ${otpCode}
+            </div>
+            <p style="color: #666; margin-top: 30px; font-size: 14px;">
+              This code will expire in 30 minutes. Enter this code to complete your login.
+            </p>
+            <p style="color: #666; margin-top: 20px; font-size: 14px;">
+              Best regards,<br>
+              The xmobit Team
+            </p>
+          </div>
+        </div>
       `;
 
-      await transporter.sendMail({
-        from: this.config.get<string>('NOTIFICATIONS_EMAIL'),
+      await this.postmarkEmailService.sendEmail({
         to: email,
         subject: 'Login Verification Code - xmobit',
-        html: emailContent,
+        htmlBody: emailContent,
+        tag: 'login-verification',
+        trackOpens: true,
       });
     } catch (error) {
       console.error('Failed to send OTP email:', error);

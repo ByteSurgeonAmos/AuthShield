@@ -15,7 +15,6 @@ import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
 import { LoginUserDto } from './dto/login-user.dto';
 import { JwtService } from '@nestjs/jwt';
-import * as nodemailer from 'nodemailer';
 import { randomBytes } from 'crypto';
 import { ConfigService } from '@nestjs/config';
 import * as fs from 'fs';
@@ -45,6 +44,7 @@ import {
 } from './dto/security-question.dto';
 import { HttpService } from '@nestjs/axios';
 import { firstValueFrom } from 'rxjs';
+import { PostmarkEmailService } from '../common/utils/postmark-email.util';
 
 @Injectable()
 export class UsersService {
@@ -61,6 +61,7 @@ export class UsersService {
     private securityAuditService: SecurityAuditService,
     private notificationService: NotificationService,
     private readonly httpService: HttpService,
+    private postmarkEmailService: PostmarkEmailService,
   ) {}
 
   async findAll(): Promise<User[]> {
@@ -172,46 +173,9 @@ export class UsersService {
   }
   async sendVerificationEmail(email: string, otp: string) {
     try {
-      const emailUser = this.config.get<string>('NOTIFICATIONS_EMAIL');
-      const emailPass = this.config.get<string>('EMAIL_PASS');
-
-      if (!emailUser || !emailPass) {
-        console.error(
-          '❌ Email configuration missing: NOTIFICATIONS_EMAIL or EMAIL_PASS not set',
-        );
-        throw new Error(
-          'Email configuration is missing. Please check your environment variables.',
-        );
-      }
-
       console.log(`📧 Sending verification email to: ${email}`);
 
-      const transporter = nodemailer.createTransport({
-        host: 'mail.privateemail.com',
-        secure: false,
-        port: 587,
-        auth: {
-          user: emailUser,
-          pass: emailPass,
-        },
-      });
-
-      const templatePath = path.join(
-        __dirname,
-        '..',
-        'templates',
-        'email-verification-otp.html',
-      );
-      const source = fs.readFileSync(templatePath, 'utf-8').toString();
-      const template = handlebars.compile(source);
-      const htmlContent = template({ verificationCode: otp });
-
-      await transporter.sendMail({
-        from: emailUser,
-        to: email,
-        subject: 'Verify Your Email - xmobit',
-        html: htmlContent,
-      });
+      await this.postmarkEmailService.sendVerificationEmail(email, otp);
 
       console.log(`✅ Verification email sent successfully to: ${email}`);
     } catch (error) {
@@ -649,39 +613,20 @@ export class UsersService {
 
     const location = this.getLocationFromIP(loginDetails.ip);
 
-    const transporter = nodemailer.createTransport({
-      host: 'mail.privateemail.com',
-      secure: false,
-      port: 587,
-      auth: {
-        user: this.config.get<string>('NOTIFICATIONS_EMAIL'),
-        pass: this.config.get<string>('EMAIL_PASS'),
-      },
-    });
-
-    const templatePath = path.join(
-      __dirname,
-      '..',
-      'templates',
-      'login-notification.html',
-    );
-    const source = fs.readFileSync(templatePath, 'utf-8').toString();
-    const template = handlebars.compile(source);
-
-    const htmlContent = template({
-      username: user.username,
-      loginTime: new Date().toLocaleString(),
-      ipAddress: loginDetails.ip || 'Unknown',
-      device: loginDetails.userAgent || 'Unknown',
-      location: location,
-    });
-
-    await transporter.sendMail({
-      from: this.config.get<string>('NOTIFICATIONS_EMAIL'),
-      to: user.email,
-      subject: 'New Login Detected - xmobit',
-      html: htmlContent,
-    });
+    try {
+      await this.postmarkEmailService.sendLoginNotification(
+        user.email,
+        user.username,
+        {
+          ip: loginDetails.ip,
+          userAgent: loginDetails.userAgent,
+          location: location,
+          time: new Date(),
+        },
+      );
+    } catch (error) {
+      console.error('❌ Failed to send login notification:', error.message);
+    }
   }
 
   async setup2FA(userId: string, method: TwoFactorMethod): Promise<any> {
@@ -777,31 +722,12 @@ export class UsersService {
     return { message: `2FA code sent to your ${user.twoFactorMethod}` };
   }
   private async send2FAEmail(email: string, code: string) {
-    const transporter = nodemailer.createTransport({
-      host: 'smtp.privateemail.com',
-      secure: true,
-      port: 465,
-      auth: {
-        user: this.config.get<string>('NOTIFICATIONS_EMAIL'),
-        pass: this.config.get<string>('EMAIL_PASS'),
-      },
-    });
-    const templatePath = path.join(
-      __dirname,
-      '..',
-      'templates',
-      '2fa-code.html',
-    );
-    const source = fs.readFileSync(templatePath, 'utf-8').toString();
-    const template = handlebars.compile(source);
-    const htmlContent = template({ verificationCode: code });
-
-    await transporter.sendMail({
-      from: this.config.get<string>('NOTIFICATIONS_EMAIL'),
-      to: email,
-      subject: 'Your 2FA Verification Code - xmobit',
-      html: htmlContent,
-    });
+    try {
+      await this.postmarkEmailService.send2FACode(email, code);
+    } catch (error) {
+      console.error('❌ Failed to send 2FA email:', error.message);
+      throw new Error(`Failed to send 2FA email: ${error.message}`);
+    }
   }
 
   async verify2FACode(userId: string, token: string): Promise<boolean> {
@@ -2363,12 +2289,11 @@ export class UsersService {
         };
       }
 
-      // Format the phone number using provided country code or user's saved country code
       const phoneResult = formatPhoneNumber(
         phoneNumber,
         countryCode,
         user.countryCode,
-        '254', // default country code
+        '254',
       );
 
       if (!phoneResult.isValid) {
@@ -2383,7 +2308,6 @@ export class UsersService {
       user.phoneVerificationToken = null;
       user.phoneVerificationExpires = null;
 
-      // Update country code if provided and different from current
       if (
         phoneResult.countryCode &&
         phoneResult.countryCode !== user.countryCode
@@ -2590,19 +2514,16 @@ export class UsersService {
         };
       }
 
-      // Check if user details exist in the database
       let userDetails = await this.detailsRepository.findOne({
         where: { userId: user.userId },
       });
 
       if (!userDetails) {
-        // Create new details record
         userDetails = this.detailsRepository.create({
           userId: user.userId,
           thirdPartyProvider: provider,
         });
       } else {
-        // Update existing details
         userDetails.thirdPartyProvider = provider;
       }
 
@@ -2649,19 +2570,16 @@ export class UsersService {
         };
       }
 
-      // Check if user details exist in the database
       let userDetails = await this.detailsRepository.findOne({
         where: { userId: user.userId },
       });
 
       if (!userDetails) {
-        // Create new details record
         userDetails = this.detailsRepository.create({
           userId: user.userId,
           paymentDetails: JSON.stringify(paymentData),
         });
       } else {
-        // Update existing details
         userDetails.paymentDetails = JSON.stringify(paymentData);
       }
 
@@ -2814,36 +2732,12 @@ export class UsersService {
     email: string,
     resetToken: string,
   ): Promise<void> {
-    const baseURL = this.config.get('FRONTEND_URL') || 'http://localhost:3001';
-
-    const transporter = nodemailer.createTransport({
-      host: 'mail.privateemail.com',
-      secure: false,
-      port: 587,
-      auth: {
-        user: this.config.get<string>('NOTIFICATIONS_EMAIL'),
-        pass: this.config.get<string>('EMAIL_PASS'),
-      },
-    });
-
-    const templatePath = path.join(
-      __dirname,
-      '../templates/password-reset.html',
-    );
-    const source = fs.readFileSync(templatePath, 'utf-8').toString();
-    const template = handlebars.compile(source);
-    const htmlContent = template({
-      baseURL: baseURL,
-      token: resetToken,
-      expiryTime: '1 hour',
-    });
-
-    await transporter.sendMail({
-      from: this.config.get<string>('NOTIFICATIONS_EMAIL'),
-      to: email,
-      subject: 'Password Reset Request - xmobit',
-      html: htmlContent,
-    });
+    try {
+      await this.postmarkEmailService.sendPasswordResetEmail(email, resetToken);
+    } catch (error) {
+      console.error('❌ Failed to send password reset email:', error.message);
+      throw new Error(`Failed to send password reset email: ${error.message}`);
+    }
   }
 
   private async sendWelcomeEmail(
@@ -2851,30 +2745,7 @@ export class UsersService {
     username: string,
   ): Promise<void> {
     try {
-      const transporter = nodemailer.createTransport({
-        host: 'mail.privateemail.com',
-        secure: false,
-        port: 587,
-        auth: {
-          user: this.config.get<string>('NOTIFICATIONS_EMAIL'),
-          pass: this.config.get<string>('EMAIL_PASS'),
-        },
-      });
-
-      const templatePath = path.join(
-        __dirname,
-        '../templates/welcome-email.html',
-      );
-      const templateContent = fs.readFileSync(templatePath, 'utf8');
-
-      const html = templateContent.replace(/{{username}}/g, username);
-
-      await transporter.sendMail({
-        from: this.config.get<string>('NOTIFICATIONS_EMAIL'),
-        to: email,
-        subject: 'Welcome to xmobit!',
-        html,
-      });
+      await this.postmarkEmailService.sendWelcomeEmail(email, username);
     } catch (error) {
       console.error('Failed to send welcome email:', error);
     }
