@@ -18,6 +18,7 @@ import { SecurityAuditService } from './services/security-audit.service';
 import { NotificationService } from './services/notification.service';
 import { WalletValidationService } from './services/wallet-validation.service';
 import { HttpModule } from '@nestjs/axios';
+import { PostmarkEmailService } from '../common/utils/postmark-email.util';
 
 @Module({
   imports: [
@@ -49,6 +50,7 @@ import { HttpModule } from '@nestjs/axios';
     SecurityAuditService,
     NotificationService,
     WalletValidationService,
+    PostmarkEmailService,
   ],
   exports: [
     UsersService,
@@ -58,6 +60,7 @@ import { HttpModule } from '@nestjs/axios';
     SecurityAuditService,
     NotificationService,
     WalletValidationService,
+    PostmarkEmailService,
   ],
 })
 export class UsersModule {}
