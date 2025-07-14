@@ -33,6 +33,14 @@ export class VerifySecurityQuestionDto {
   @IsString()
   @IsNotEmpty()
   answer: string;
+
+  @ApiProperty({
+    description: 'Email of the user for verification',
+    example: 'user@example.com',
+  })
+  @IsString()
+  @IsNotEmpty()
+  email: string;
 }
 
 export class UpdateSecurityQuestionDto {

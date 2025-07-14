@@ -1719,7 +1719,7 @@ export class UsersController {
   }
 
   @Post('security-question/verify')
-  @UseGuards(JwtAuthGuard)
+  // @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('access-token')
   @ApiTags('Security')
   @ApiOperation({
@@ -1735,19 +1735,12 @@ export class UsersController {
     status: 400,
     description: 'Bad request - Invalid answer',
   })
-  @ApiResponse({
-    status: 401,
-    description: 'Unauthorized - Invalid token',
-  })
   @HttpCode(HttpStatus.OK)
   async verifySecurityQuestion(
     @Request() req,
     @Body() verifySecurityQuestionDto: VerifySecurityQuestionDto,
   ) {
-    return this.usersService.verifySecurityQuestion(
-      req.user.userId,
-      verifySecurityQuestionDto,
-    );
+    return this.usersService.verifySecurityQuestion(verifySecurityQuestionDto);
   }
 
   @Patch('security-question/update')
@@ -2125,7 +2118,7 @@ export class UsersController {
 
   // =============== SECURITY QUESTIONS ENDPOINTS ===============
 
-  @Get('security-question')
+  @Get('security-question/by-email')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Get security question by email',
@@ -2139,6 +2132,15 @@ export class UsersController {
   @ApiResponse({
     status: 200,
     description: 'Security question retrieved successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        question: {
+          type: 'string',
+          example: 'What was the name of your first pet?',
+        },
+      },
+    },
   })
   @ApiResponse({
     status: 404,
