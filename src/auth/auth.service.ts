@@ -642,8 +642,7 @@ export class UsersService {
 
         user.otpauth = secret.otpauth_url;
         user.twoFactorSecret = secret.base32;
-        user.twoFactorMethod = method;
-        user.is2FaEnabled = true;
+        user.twoFactorMethod = TwoFactorMethod.AUTHENTICATOR;
         await this.userRepository.save(user);
       }
 
@@ -670,7 +669,7 @@ export class UsersService {
   ): Promise<{ message: string }> {
     const user = await this.findOne(userId);
 
-    if (!user.twoFactorSecret || !user.twoFactorMethod) {
+    if (!user.twoFactorSecret) {
       throw new BadRequestException('No 2FA setup in progress');
     }
 
@@ -688,6 +687,7 @@ export class UsersService {
     }
 
     user.is2FaEnabled = true;
+    user.twoFactorMethod = TwoFactorMethod.AUTHENTICATOR;
     await this.userRepository.save(user);
 
     return { message: '2FA enabled successfully' };
