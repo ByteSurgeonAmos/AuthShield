@@ -358,9 +358,9 @@ export class UsersService {
       throw new NotFoundException('User not found');
     }
 
-    if (user.emailVerified) {
-      throw new BadRequestException('Email is already verified');
-    }
+    // if (user.emailVerified) {
+    //   throw new BadRequestException('Email is already verified');
+    // }
 
     const newVerificationOTP = generateOtp(6, {
       digitsOnly: true,
