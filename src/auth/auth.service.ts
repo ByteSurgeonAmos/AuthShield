@@ -2026,10 +2026,6 @@ export class UsersService {
       throw new NotFoundException('User not found');
     }
 
-    if (user.emailVerified) {
-      throw new BadRequestException('Email is already verified');
-    }
-
     if (!user.emailVerificationToken || !user.emailVerificationExpires) {
       throw new BadRequestException(
         'No verification OTP found. Please request a new one.',
