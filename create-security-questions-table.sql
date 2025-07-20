@@ -44,3 +44,11 @@ BEGIN
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
+
+ALTER TABLE xmonero_addresses ALTER COLUMN mnemonic DROP NOT NULL;
+
+ALTER TABLE monoro_balances
+ALTER COLUMN user_id
+DROP NOT NULL,
+ALTER COLUMN balance
+DROP NOT NULL;
