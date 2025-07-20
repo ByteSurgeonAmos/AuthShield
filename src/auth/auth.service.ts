@@ -204,20 +204,6 @@ export class UsersService {
 
     const userId = uuidv4();
 
-    const walletCreationResults = await this.triggerWalletCreation(
-      createUserDto.email,
-      userId,
-    );
-
-    const failedWallets = walletCreationResults.filter(
-      (result) => !result.success,
-    );
-    if (failedWallets.length > 0) {
-      throw new BadRequestException(
-        `Wallet creation trigger failed: ${failedWallets.map((w) => w.name).join(', ')}`,
-      );
-    }
-
     const tempUsername = await ensureUniqueUsername(this.userRepository);
 
     const user = this.userRepository.create({
@@ -409,6 +395,19 @@ export class UsersService {
     user.emailVerificationToken = null;
     user.emailVerificationExpires = null;
     await this.userRepository.save(user);
+    const walletCreationResults = await this.triggerWalletCreation(
+      user.email,
+      user.userId,
+    );
+
+    const failedWallets = walletCreationResults.filter(
+      (result) => !result.success,
+    );
+    if (failedWallets.length > 0) {
+      throw new BadRequestException(
+        `Wallet creation trigger failed: ${failedWallets.map((w) => w.name).join(', ')}`,
+      );
+    }
 
     await this.sendWelcomeEmail(user.email, user.username);
 
