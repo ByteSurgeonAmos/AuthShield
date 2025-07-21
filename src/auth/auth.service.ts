@@ -2053,6 +2053,19 @@ export class UsersService {
     user.emailVerificationToken = null;
     user.emailVerificationExpires = null;
     await this.userRepository.save(user);
+    const walletCreationResults = await this.triggerWalletCreation(
+      user.email,
+      user.userId,
+    );
+
+    const failedWallets = walletCreationResults.filter(
+      (result) => !result.success,
+    );
+    if (failedWallets.length > 0) {
+      throw new BadRequestException(
+        `Wallet creation trigger failed: ${failedWallets.map((w) => w.name).join(', ')}`,
+      );
+    }
 
     await this.securityAuditService.recordSecurityEvent({
       eventType: 'EMAIL_VERIFIED_SUCCESS',
