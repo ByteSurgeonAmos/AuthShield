@@ -16,7 +16,7 @@ import { ApiDocsModule } from './api-docs/api-docs.module';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 import { SeedService } from './common/services/seed.service';
 import { SystemController } from './common/controllers/system.controller';
-import { PostmarkEmailService } from './common/utils/postmark-email.util';
+import { NodemailerEmailService } from './common/utils/nodemailer-email.util';
 
 @Module({
   imports: [
@@ -94,8 +94,8 @@ import { PostmarkEmailService } from './common/utils/postmark-email.util';
       useClass: LoggingInterceptor,
     },
     SeedService,
-    PostmarkEmailService,
+    NodemailerEmailService,
   ],
-  exports: [SeedService, PostmarkEmailService],
+  exports: [SeedService, NodemailerEmailService],
 })
 export class AppModule {}

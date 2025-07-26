@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { AuthNotification } from '../entities/auth-notification.entity';
-import { PostmarkEmailService } from '../../common/utils/postmark-email.util';
+import { NodemailerEmailService } from '../../common/utils/nodemailer-email.util';
 
 @Injectable()
 export class NotificationService {
@@ -11,7 +11,7 @@ export class NotificationService {
     @InjectRepository(AuthNotification)
     private notificationRepository: Repository<AuthNotification>,
     private config: ConfigService,
-    private postmarkEmailService: PostmarkEmailService,
+    private nodemailerEmailService: NodemailerEmailService,
   ) {}
   async sendLoginAttemptNotification(
     email: string,
@@ -44,12 +44,10 @@ export class NotificationService {
         </div>
       `;
 
-      await this.postmarkEmailService.sendEmail({
+      await this.nodemailerEmailService.sendEmail({
         to: email,
         subject: 'Failed Login Attempt - xmobit',
         htmlBody: emailContent,
-        tag: 'failed-login-attempt',
-        trackOpens: true,
       });
     } catch (error) {
       console.error('Failed to send login attempt notification:', error);
@@ -61,7 +59,7 @@ export class NotificationService {
     otpCode: string,
   ): Promise<void> {
     try {
-      await this.postmarkEmailService.sendVerificationEmail(email, otpCode);
+      await this.nodemailerEmailService.sendVerificationEmail(email, otpCode);
     } catch (error) {
       console.error('Failed to send account verification email:', error);
     }
@@ -90,12 +88,10 @@ export class NotificationService {
         </div>
       `;
 
-      await this.postmarkEmailService.sendEmail({
+      await this.nodemailerEmailService.sendEmail({
         to: email,
         subject: 'Login Verification Code - xmobit',
         htmlBody: emailContent,
-        tag: 'login-verification',
-        trackOpens: true,
       });
     } catch (error) {
       console.error('Failed to send OTP email:', error);
