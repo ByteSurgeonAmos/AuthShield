@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as nodemailer from 'nodemailer';
 import * as fs from 'fs';
@@ -35,15 +35,16 @@ export class NodemailerEmailService {
 
   constructor(private configService: ConfigService) {
     const host =
-      this.configService.get<string>('EMAIL_HOST') || 'mail.privateemail.com';
+      this.configService.get<string>('EMAIL_HOST') || 'email-smtp.us-east-1.amazonaws.com';
     const port = parseInt(
-      this.configService.get<string>('EMAIL_PORT') || '465',
+      this.configService.get<string>('EMAIL_PORT') || '587',
     );
     const secure =
       this.configService.get<string>('EMAIL_SECURE') === 'true' || port === 465;
     const user =
-      this.configService.get<string>('EMAIL_USER') || 'no.reply@xmobit.com';
-    const pass = this.configService.get<string>('EMAIL_PASS');
+      this.configService.get<string>('EMAIL_USER');
+    const pass =
+      this.configService.get<string>('EMAIL_PASS');
 
     this.transporter = nodemailer.createTransport({
       host,
@@ -56,7 +57,16 @@ export class NodemailerEmailService {
     });
 
     this.defaultFrom =
-      this.configService.get<string>('NOTIFICATIONS_EMAIL') || user;
+      this.configService.get<string>('NOTIFICATIONS_EMAIL') ||
+      'no.reply@xmobit.com';
+
+    this.transporter.verify((error, success) => {
+      if (error) {
+        console.error('❌ SMTP configuration error:', error);
+      } else {
+        console.log('✅ SMTP transporter ready for SES');
+      }
+    });
   }
 
   async sendEmail(options: EmailOptions): Promise<EmailSendResponse> {
@@ -75,11 +85,9 @@ export class NodemailerEmailService {
 
       const result = await this.transporter.sendMail(mailOptions);
 
-      console.log('✅ Email sent successfully via Nodemailer:', {
-        messageId: result.messageId,
-        to: options.to,
-        subject: options.subject,
-      });
+      Logger.log('✅ Email sent successfully via AWS SES:', {
+        messageId: result.messageId
+      }, 'NodemailerEmailService');
 
       return {
         messageId: result.messageId,
@@ -88,10 +96,17 @@ export class NodemailerEmailService {
         response: result.response,
       };
     } catch (error) {
-      console.error('❌ Failed to send email via Nodemailer:', error);
-      throw error;
+      Logger.error('❌ Failed to send email via AWS SES:', {
+        error: error.message,
+        code: error.code
+      }, 'NodemailerEmailService');
+      if (error.code === 'MessageRejected') {
+        throw new Error('Email rejected: Verify sender/recipient or check SES sandbox mode');
+      }
+      throw new Error(`Failed to send email: ${error.message}`);
     }
   }
+
 
   async sendBulkEmails(emails: EmailOptions[]): Promise<EmailSendResponse[]> {
     try {
@@ -99,9 +114,6 @@ export class NodemailerEmailService {
         emails.map((email) => this.sendEmail(email)),
       );
 
-      console.log(
-        `✅ ${results.length} emails sent successfully via Nodemailer`,
-      );
       return results;
     } catch (error) {
       console.error('❌ Failed to send bulk emails via Nodemailer:', error);
