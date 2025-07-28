@@ -44,7 +44,7 @@ import {
 } from './dto/security-question.dto';
 import { HttpService } from '@nestjs/axios';
 import { firstValueFrom } from 'rxjs';
-import { PostmarkEmailService } from '../common/utils/postmark-email.util';
+import { NodemailerEmailService } from '../common/utils/nodemailer-email.util';
 
 @Injectable()
 export class UsersService {
@@ -61,7 +61,7 @@ export class UsersService {
     private securityAuditService: SecurityAuditService,
     private notificationService: NotificationService,
     private readonly httpService: HttpService,
-    private postmarkEmailService: PostmarkEmailService,
+    private nodemailerEmailService: NodemailerEmailService,
   ) {}
 
   async findAll(): Promise<User[]> {
@@ -175,7 +175,7 @@ export class UsersService {
     try {
       console.log(`📧 Sending verification email to: ${email}`);
 
-      await this.postmarkEmailService.sendVerificationEmail(email, otp);
+      await this.nodemailerEmailService.sendVerificationEmail(email, otp);
 
       console.log(`✅ Verification email sent successfully to: ${email}`);
     } catch (error) {
@@ -203,20 +203,6 @@ export class UsersService {
     otpExpiry.setMinutes(otpExpiry.getMinutes() + 15);
 
     const userId = uuidv4();
-
-    const walletCreationResults = await this.triggerWalletCreation(
-      createUserDto.email,
-      userId,
-    );
-
-    const failedWallets = walletCreationResults.filter(
-      (result) => !result.success,
-    );
-    if (failedWallets.length > 0) {
-      throw new BadRequestException(
-        `Wallet creation trigger failed: ${failedWallets.map((w) => w.name).join(', ')}`,
-      );
-    }
 
     const tempUsername = await ensureUniqueUsername(this.userRepository);
 
@@ -358,9 +344,9 @@ export class UsersService {
       throw new NotFoundException('User not found');
     }
 
-    if (user.emailVerified) {
-      throw new BadRequestException('Email is already verified');
-    }
+    // if (user.emailVerified) {
+    //   throw new BadRequestException('Email is already verified');
+    // }
 
     const newVerificationOTP = generateOtp(6, {
       digitsOnly: true,
@@ -409,6 +395,19 @@ export class UsersService {
     user.emailVerificationToken = null;
     user.emailVerificationExpires = null;
     await this.userRepository.save(user);
+    const walletCreationResults = await this.triggerWalletCreation(
+      user.email,
+      user.userId,
+    );
+
+    const failedWallets = walletCreationResults.filter(
+      (result) => !result.success,
+    );
+    if (failedWallets.length > 0) {
+      throw new BadRequestException(
+        `Wallet creation trigger failed: ${failedWallets.map((w) => w.name).join(', ')}`,
+      );
+    }
 
     await this.sendWelcomeEmail(user.email, user.username);
 
@@ -614,7 +613,7 @@ export class UsersService {
     const location = this.getLocationFromIP(loginDetails.ip);
 
     try {
-      await this.postmarkEmailService.sendLoginNotification(
+      await this.nodemailerEmailService.sendLoginNotification(
         user.email,
         user.username,
         {
@@ -723,7 +722,7 @@ export class UsersService {
   }
   private async send2FAEmail(email: string, code: string) {
     try {
-      await this.postmarkEmailService.send2FACode(email, code);
+      await this.nodemailerEmailService.send2FACode(email, code);
     } catch (error) {
       console.error('❌ Failed to send 2FA email:', error.message);
       throw new Error(`Failed to send 2FA email: ${error.message}`);
@@ -2026,10 +2025,6 @@ export class UsersService {
       throw new NotFoundException('User not found');
     }
 
-    if (user.emailVerified) {
-      throw new BadRequestException('Email is already verified');
-    }
-
     if (!user.emailVerificationToken || !user.emailVerificationExpires) {
       throw new BadRequestException(
         'No verification OTP found. Please request a new one.',
@@ -2058,6 +2053,19 @@ export class UsersService {
     user.emailVerificationToken = null;
     user.emailVerificationExpires = null;
     await this.userRepository.save(user);
+    const walletCreationResults = await this.triggerWalletCreation(
+      user.email,
+      user.userId,
+    );
+
+    const failedWallets = walletCreationResults.filter(
+      (result) => !result.success,
+    );
+    if (failedWallets.length > 0) {
+      throw new BadRequestException(
+        `Wallet creation trigger failed: ${failedWallets.map((w) => w.name).join(', ')}`,
+      );
+    }
 
     await this.securityAuditService.recordSecurityEvent({
       eventType: 'EMAIL_VERIFIED_SUCCESS',
@@ -2733,7 +2741,10 @@ export class UsersService {
     resetToken: string,
   ): Promise<void> {
     try {
-      await this.postmarkEmailService.sendPasswordResetEmail(email, resetToken);
+      await this.nodemailerEmailService.sendPasswordResetEmail(
+        email,
+        resetToken,
+      );
     } catch (error) {
       console.error('❌ Failed to send password reset email:', error.message);
       throw new Error(`Failed to send password reset email: ${error.message}`);
@@ -2745,7 +2756,7 @@ export class UsersService {
     username: string,
   ): Promise<void> {
     try {
-      await this.postmarkEmailService.sendWelcomeEmail(email, username);
+      await this.nodemailerEmailService.sendWelcomeEmail(email, username);
     } catch (error) {
       console.error('Failed to send welcome email:', error);
     }
