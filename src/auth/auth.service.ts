@@ -1941,29 +1941,6 @@ export class UsersService {
       );
     }
 
-    if (process.env.MONERO_WALLET_API_URL) {
-      walletPromises.push(
-        this.createSingleWallet(
-          'Monero',
-          `${process.env.MONERO_WALLET_API_URL}`,
-          {
-            'Content-Type': 'application/json',
-            'X-API-TOKEN': process.env.XMR_API_TOKEN,
-          },
-          { email, userId },
-        ),
-      );
-    } else {
-      console.error('❌ Monero wallet configuration missing');
-      walletPromises.push(
-        Promise.resolve({
-          name: 'Monero',
-          success: false,
-          error: 'Configuration missing',
-        }),
-      );
-    }
-
     try {
       const results = await Promise.all(walletPromises);
       console.log('Wallet creation process initiated successfully.');
