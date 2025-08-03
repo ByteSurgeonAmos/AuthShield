@@ -17,9 +17,7 @@ import { LoginUserDto } from './dto/login-user.dto';
 import { JwtService } from '@nestjs/jwt';
 import { randomBytes } from 'crypto';
 import { ConfigService } from '@nestjs/config';
-import * as fs from 'fs';
-import * as path from 'path';
-import * as handlebars from 'handlebars';
+
 import { generateOtp } from 'src/common/generate-otp';
 import { formatPhoneNumber } from 'src/common/phone-utils';
 import { SmsService } from 'src/sms/sms.service';
@@ -30,7 +28,6 @@ import { TwoFactorMethod } from './dto/setup-2fa.dto';
 import { SecurityAuditService } from './services/security-audit.service';
 import { NotificationService } from './services/notification.service';
 import {
-  generateRandomUsername,
   generateRandomProfileImage,
   ensureUniqueUsername,
 } from 'src/common/username-generator';
@@ -72,6 +69,8 @@ export class UsersService {
   }
 
   async findOne(userId: string): Promise<User> {
+    // Dont return sensitive fields like password, otpCode, etc.
+
     const user = await this.userRepository.findOne({
       where: { userId },
       relations: ['roles', 'details'],
@@ -80,6 +79,22 @@ export class UsersService {
     if (!user) {
       throw new NotFoundException('User not found');
     }
+    // Remove sensitive fields
+    user.password = undefined;
+    user.otpCode = undefined;
+    user.otpExpiry = undefined;
+    user.emailVerificationToken = undefined;
+    user.emailVerificationExpires = undefined;
+    user.accountLockedUntil = undefined;
+    user.failedLoginAttempts = undefined;
+    user.twoFactorSecret = undefined;
+    // user.is2FaEnabled = undefined;
+    user.twoFactorMethod = undefined;
+    user.isAccountActive = undefined;
+    // user.emailVerified = undefined;
+    user.twoFactorBackupCodes = undefined;
+    user.otpauth = undefined;
+    user.phoneVerificationToken = undefined;
 
     return user;
   }
