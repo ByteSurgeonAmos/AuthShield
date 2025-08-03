@@ -35,16 +35,15 @@ export class NodemailerEmailService {
 
   constructor(private configService: ConfigService) {
     const host =
-      this.configService.get<string>('EMAIL_HOST') || 'email-smtp.us-east-1.amazonaws.com';
+      this.configService.get<string>('EMAIL_HOST') ||
+      'email-smtp.us-east-1.amazonaws.com';
     const port = parseInt(
       this.configService.get<string>('EMAIL_PORT') || '587',
     );
     const secure =
       this.configService.get<string>('EMAIL_SECURE') === 'true' || port === 465;
-    const user =
-      this.configService.get<string>('EMAIL_USER');
-    const pass =
-      this.configService.get<string>('EMAIL_PASS');
+    const user = this.configService.get<string>('EMAIL_USER');
+    const pass = this.configService.get<string>('EMAIL_PASS');
 
     this.transporter = nodemailer.createTransport({
       host,
@@ -64,7 +63,6 @@ export class NodemailerEmailService {
       if (error) {
         console.error('❌ SMTP configuration error:', error);
       } else {
-        console.log('✅ SMTP transporter ready for SES');
       }
     });
   }
@@ -85,9 +83,13 @@ export class NodemailerEmailService {
 
       const result = await this.transporter.sendMail(mailOptions);
 
-      Logger.log('✅ Email sent successfully via AWS SES:', {
-        messageId: result.messageId
-      }, 'NodemailerEmailService');
+      Logger.log(
+        '✅ Email sent successfully via AWS SES:',
+        {
+          messageId: result.messageId,
+        },
+        'NodemailerEmailService',
+      );
 
       return {
         messageId: result.messageId,
@@ -96,17 +98,22 @@ export class NodemailerEmailService {
         response: result.response,
       };
     } catch (error) {
-      Logger.error('❌ Failed to send email via AWS SES:', {
-        error: error.message,
-        code: error.code
-      }, 'NodemailerEmailService');
+      Logger.error(
+        '❌ Failed to send email via AWS SES:',
+        {
+          error: error.message,
+          code: error.code,
+        },
+        'NodemailerEmailService',
+      );
       if (error.code === 'MessageRejected') {
-        throw new Error('Email rejected: Verify sender/recipient or check SES sandbox mode');
+        throw new Error(
+          'Email rejected: Verify sender/recipient or check SES sandbox mode',
+        );
       }
       throw new Error(`Failed to send email: ${error.message}`);
     }
   }
-
 
   async sendBulkEmails(emails: EmailOptions[]): Promise<EmailSendResponse[]> {
     try {
@@ -344,7 +351,6 @@ export class NodemailerEmailService {
   async verifyConnection(): Promise<boolean> {
     try {
       await this.transporter.verify();
-      console.log('✅ Email service connection verified');
       return true;
     } catch (error) {
       console.error('❌ Email service connection failed:', error);
