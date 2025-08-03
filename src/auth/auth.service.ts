@@ -69,6 +69,8 @@ export class UsersService {
   }
 
   async findOne(userId: string): Promise<User> {
+    // Dont return sensitive fields like password, otpCode, etc.
+
     const user = await this.userRepository.findOne({
       where: { userId },
       relations: ['roles', 'details'],
@@ -77,6 +79,22 @@ export class UsersService {
     if (!user) {
       throw new NotFoundException('User not found');
     }
+    // Remove sensitive fields
+    user.password = undefined;
+    user.otpCode = undefined;
+    user.otpExpiry = undefined;
+    user.emailVerificationToken = undefined;
+    user.emailVerificationExpires = undefined;
+    user.accountLockedUntil = undefined;
+    user.failedLoginAttempts = undefined;
+    user.twoFactorSecret = undefined;
+    // user.is2FaEnabled = undefined;
+    user.twoFactorMethod = undefined;
+    user.isAccountActive = undefined;
+    // user.emailVerified = undefined;
+    user.twoFactorBackupCodes = undefined;
+    user.otpauth = undefined;
+    user.phoneVerificationToken = undefined;
 
     return user;
   }
