@@ -71,7 +71,6 @@ export class SmsService {
         timeout: 15000,
       });
 
-      console.log('✅ SMS sent successfully:', response.data);
       return response.data;
     } catch (error) {
       console.error('❌ SMS sending failed - Full error details:');

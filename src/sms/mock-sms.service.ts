@@ -16,16 +16,6 @@ export class MockSmsService {
       defaultCountryCode,
     );
 
-    console.log('🔧 MOCK SMS SERVICE - SMS would be sent to:');
-    console.log('- Original:', to);
-    console.log('- Formatted:', phoneResult.formatted);
-    console.log('- Valid:', phoneResult.isValid);
-    console.log('- Country Code:', phoneResult.countryCode);
-    console.log('📱 Message:', message);
-    console.log(
-      '⚠️  This is a mock service. Set TIARA_API_TOKEN to use real SMS.',
-    );
-
     return {
       success: true,
       messageId: `mock_${Date.now()}`,

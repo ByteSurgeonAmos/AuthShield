@@ -188,11 +188,7 @@ export class UsersService {
   }
   async sendVerificationEmail(email: string, otp: string) {
     try {
-      console.log(`📧 Sending verification email to: ${email}`);
-
       await this.nodemailerEmailService.sendVerificationEmail(email, otp);
-
-      console.log(`✅ Verification email sent successfully to: ${email}`);
     } catch (error) {
       console.error('❌ Failed to send verification email:', error.message);
       throw new Error(`Failed to send verification email: ${error.message}`);
@@ -1864,7 +1860,6 @@ export class UsersService {
         }
 
         const delay = Math.min(1000 * Math.pow(2, attempt - 1), 5000);
-        console.log(`Retrying in ${delay}ms...`);
         await new Promise((resolve) => setTimeout(resolve, delay));
       }
     }
@@ -1883,7 +1878,6 @@ export class UsersService {
           const bodyString = JSON.stringify(body);
           const signature = this.generateHmacSignature(bodyString, hmacSecret);
           headers['X-DATA-SIGNATURE'] = signature;
-          console.log(`🔐 Added HMAC signature for ${name} wallet request`);
         } else {
           console.warn(
             `⚠️  HMAC_SECRET not configured for ${name} wallet signing`,
@@ -1892,7 +1886,6 @@ export class UsersService {
       }
 
       const result = await this.retryRequest(url, headers, body);
-      console.log(`✅ ${name} wallet creation initiated successfully (200 OK)`);
       return { name, success: true, data: result };
     } catch (error: any) {
       console.error(`❌ ${name} wallet creation failed:`, error.message);
@@ -1904,7 +1897,6 @@ export class UsersService {
     email: string,
     userId: string,
   ): Promise<Array<{ name: string; success: boolean; error?: string }>> {
-    console.log('Starting wallet creation process...');
     const walletPromises: Promise<{
       name: string;
       success: boolean;
@@ -1958,10 +1950,8 @@ export class UsersService {
 
     try {
       const results = await Promise.all(walletPromises);
-      console.log('Wallet creation process initiated successfully.');
       return results;
     } catch (error) {
-      console.log(error);
       console.error('Error in wallet creation process:', error);
       throw error;
     }
