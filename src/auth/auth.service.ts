@@ -17,9 +17,7 @@ import { LoginUserDto } from './dto/login-user.dto';
 import { JwtService } from '@nestjs/jwt';
 import { randomBytes } from 'crypto';
 import { ConfigService } from '@nestjs/config';
-import * as fs from 'fs';
-import * as path from 'path';
-import * as handlebars from 'handlebars';
+
 import { generateOtp } from 'src/common/generate-otp';
 import { formatPhoneNumber } from 'src/common/phone-utils';
 import { SmsService } from 'src/sms/sms.service';
@@ -30,7 +28,6 @@ import { TwoFactorMethod } from './dto/setup-2fa.dto';
 import { SecurityAuditService } from './services/security-audit.service';
 import { NotificationService } from './services/notification.service';
 import {
-  generateRandomUsername,
   generateRandomProfileImage,
   ensureUniqueUsername,
 } from 'src/common/username-generator';
