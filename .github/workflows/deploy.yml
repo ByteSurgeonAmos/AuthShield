@@ -1,0 +1,93 @@
+name: Deploy Application
+
+on:
+  push:
+    branches:
+      - Staging
+      - master
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: "Specify branch to deploy"
+        required: true
+        default: "Staging"
+        type: choice
+        options:
+          - Staging
+          - master
+
+jobs:
+  deploy:
+    name: Deploy to Server
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm i
+      
+    - name: Build for Staging
+      if: github.ref == 'refs/heads/Staging' || github.event.inputs.branch == 'Staging'
+      run: npm run build:staging
+      
+    - name: Build for Production
+      if: github.ref == 'refs/heads/master' || github.event.inputs.branch == 'master'
+      run: npm run build
+      
+    - name: Copy files to staging server
+      if: github.ref == 'refs/heads/Staging' || github.event.inputs.branch == 'Staging'
+      uses: appleboy/scp-action@v0.1.7
+      with:
+        host: ${{ secrets.STAGING_REMOTE_HOST }}
+        username: ${{ secrets.STAGING_REMOTE_USER }}
+        key: ${{ secrets.STAGING_SSH_PRIVATE_KEY }}  
+        port: 22
+        source: "./"
+        target: ${{ secrets.STAGING_REMOTE_DIR }}
+        strip_components: 0
+        overwrite: true
+        
+    - name: Run staging deploy script
+      if: github.ref == 'refs/heads/Staging' || github.event.inputs.branch == 'Staging'
+      uses: appleboy/ssh-action@v0.1.7
+      with:
+        host: ${{ secrets.STAGING_REMOTE_HOST }}
+        username: ${{ secrets.STAGING_REMOTE_USER }}
+        key: ${{ secrets.STAGING_SSH_PRIVATE_KEY }}
+        port: 22
+        script: |
+          bash ${{ secrets.STAGING_DEPLOY_SCRIPT }}
+          
+    - name: Copy files to production server
+      if: github.ref == 'refs/heads/master' || github.event.inputs.branch == 'master'
+      uses: appleboy/scp-action@v0.1.7
+      with:
+        host: ${{ secrets.PROD_REMOTE_HOST }}
+        username: ${{ secrets.PROD_REMOTE_USER }}
+        key: ${{ secrets.PROD_SSH_PRIVATE_KEY }}  
+        port: 22
+        source: "./"
+        target: ${{ secrets.PROD_REMOTE_DIR }}
+        strip_components: 0
+        overwrite: true
+        
+    - name: Run production deploy script
+      if: github.ref == 'refs/heads/master' || github.event.inputs.branch == 'master'
+      uses: appleboy/ssh-action@v0.1.7
+      with:
+        host: ${{ secrets.PROD_REMOTE_HOST }}
+        username: ${{ secrets.PROD_REMOTE_USER }}
+        key: ${{ secrets.PROD_SSH_PRIVATE_KEY }}
+        port: 22
+        script: |
+          bash ${{ secrets.PROD_DEPLOY_SCRIPT }}
+
+ 

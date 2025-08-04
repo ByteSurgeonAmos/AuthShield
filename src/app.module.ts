@@ -51,7 +51,10 @@ import { CountryModule } from './common/country.module';
             synchronize:
               process.env.NODE_ENV === 'development' &&
               process.env.FORCE_SYNC === 'true',
-            ssl: configService.get<string>('SSL') === 'true',
+            // ssl: configService.get<string>('SSL') === 'true',
+            ssl: {
+              rejectUnauthorized: process.env.NODE_ENV === 'development' ? true : false,
+            },
             logging: false,
           };
         }
@@ -100,4 +103,4 @@ import { CountryModule } from './common/country.module';
   ],
   exports: [SeedService, NodemailerEmailService],
 })
-export class AppModule {}
+export class AppModule { }
