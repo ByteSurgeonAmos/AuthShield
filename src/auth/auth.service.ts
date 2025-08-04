@@ -704,10 +704,13 @@ export class UsersService {
   }
 
   async send2FACode(userId: string): Promise<{ message: string }> {
-    const user = await this.findOne(userId);
+    const user = await this.userRepository.findOne({
+      where: { userId },
+      relations: ['roles', 'details'],
+    });
 
     if (!user.is2FaEnabled || !user.twoFactorMethod) {
-      throw new BadRequestException('2FA is not enabled for this user');
+      throw new BadRequestException('2FA is not enabled for this user1');
     }
 
     const code = generateOtp(6, { digitsOnly: true });
