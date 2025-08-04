@@ -111,9 +111,9 @@ export class UsersService {
     const user = await this.findOne(userId);
 
     if (updateUserDto.username && updateUserDto.username !== user.username) {
-      if (user.usernameChanged) {
-        throw new BadRequestException('Username can only be changed once');
-      }
+      // if (user.usernameChanged) {
+      //   throw new BadRequestException('Username can only be changed once');
+      // }
 
       const existingUser = await this.userRepository.findOne({
         where: { username: updateUserDto.username },
