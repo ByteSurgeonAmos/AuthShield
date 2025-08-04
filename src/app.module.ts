@@ -50,7 +50,10 @@ import { NodemailerEmailService } from './common/utils/nodemailer-email.util';
             synchronize:
               process.env.NODE_ENV === 'development' &&
               process.env.FORCE_SYNC === 'true',
-            ssl: configService.get<string>('SSL') === 'true',
+            // ssl: configService.get<string>('SSL') === 'true',
+            ssl: {
+              rejectUnauthorized: false,
+            },
             logging: false,
           };
         }
@@ -98,4 +101,4 @@ import { NodemailerEmailService } from './common/utils/nodemailer-email.util';
   ],
   exports: [SeedService, NodemailerEmailService],
 })
-export class AppModule {}
+export class AppModule { }
