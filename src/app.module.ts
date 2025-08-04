@@ -52,7 +52,7 @@ import { NodemailerEmailService } from './common/utils/nodemailer-email.util';
               process.env.FORCE_SYNC === 'true',
             // ssl: configService.get<string>('SSL') === 'true',
             ssl: {
-              rejectUnauthorized: false,
+              rejectUnauthorized: process.env.NODE_ENV === 'development' ? true : false,
             },
             logging: false,
           };
