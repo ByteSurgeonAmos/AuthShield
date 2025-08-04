@@ -17,9 +17,7 @@ import { LoginUserDto } from './dto/login-user.dto';
 import { JwtService } from '@nestjs/jwt';
 import { randomBytes } from 'crypto';
 import { ConfigService } from '@nestjs/config';
-import * as fs from 'fs';
-import * as path from 'path';
-import * as handlebars from 'handlebars';
+
 import { generateOtp } from 'src/common/generate-otp';
 import { formatPhoneNumber } from 'src/common/phone-utils';
 import { SmsService } from 'src/sms/sms.service';
@@ -30,7 +28,6 @@ import { TwoFactorMethod } from './dto/setup-2fa.dto';
 import { SecurityAuditService } from './services/security-audit.service';
 import { NotificationService } from './services/notification.service';
 import {
-  generateRandomUsername,
   generateRandomProfileImage,
   ensureUniqueUsername,
 } from 'src/common/username-generator';
@@ -72,6 +69,8 @@ export class UsersService {
   }
 
   async findOne(userId: string): Promise<User> {
+    // Dont return sensitive fields like password, otpCode, etc.
+
     const user = await this.userRepository.findOne({
       where: { userId },
       relations: ['roles', 'details'],
@@ -80,6 +79,22 @@ export class UsersService {
     if (!user) {
       throw new NotFoundException('User not found');
     }
+    // Remove sensitive fields
+    user.password = undefined;
+    user.otpCode = undefined;
+    user.otpExpiry = undefined;
+    user.emailVerificationToken = undefined;
+    user.emailVerificationExpires = undefined;
+    user.accountLockedUntil = undefined;
+    user.failedLoginAttempts = undefined;
+    user.twoFactorSecret = undefined;
+    // user.is2FaEnabled = undefined;
+    user.twoFactorMethod = undefined;
+    user.isAccountActive = undefined;
+    // user.emailVerified = undefined;
+    user.twoFactorBackupCodes = undefined;
+    user.otpauth = undefined;
+    user.phoneVerificationToken = undefined;
 
     return user;
   }
@@ -173,11 +188,7 @@ export class UsersService {
   }
   async sendVerificationEmail(email: string, otp: string) {
     try {
-      console.log(`📧 Sending verification email to: ${email}`);
-
       await this.nodemailerEmailService.sendVerificationEmail(email, otp);
-
-      console.log(`✅ Verification email sent successfully to: ${email}`);
     } catch (error) {
       console.error('❌ Failed to send verification email:', error.message);
       throw new Error(`Failed to send verification email: ${error.message}`);
@@ -641,8 +652,7 @@ export class UsersService {
 
         user.otpauth = secret.otpauth_url;
         user.twoFactorSecret = secret.base32;
-        user.twoFactorMethod = method;
-        user.is2FaEnabled = true;
+        user.twoFactorMethod = TwoFactorMethod.AUTHENTICATOR;
         await this.userRepository.save(user);
       }
 
@@ -669,7 +679,7 @@ export class UsersService {
   ): Promise<{ message: string }> {
     const user = await this.findOne(userId);
 
-    if (!user.twoFactorSecret || !user.twoFactorMethod) {
+    if (!user.twoFactorSecret) {
       throw new BadRequestException('No 2FA setup in progress');
     }
 
@@ -687,6 +697,7 @@ export class UsersService {
     }
 
     user.is2FaEnabled = true;
+    user.twoFactorMethod = TwoFactorMethod.AUTHENTICATOR;
     await this.userRepository.save(user);
 
     return { message: '2FA enabled successfully' };
@@ -1849,7 +1860,6 @@ export class UsersService {
         }
 
         const delay = Math.min(1000 * Math.pow(2, attempt - 1), 5000);
-        console.log(`Retrying in ${delay}ms...`);
         await new Promise((resolve) => setTimeout(resolve, delay));
       }
     }
@@ -1868,7 +1878,6 @@ export class UsersService {
           const bodyString = JSON.stringify(body);
           const signature = this.generateHmacSignature(bodyString, hmacSecret);
           headers['X-DATA-SIGNATURE'] = signature;
-          console.log(`🔐 Added HMAC signature for ${name} wallet request`);
         } else {
           console.warn(
             `⚠️  HMAC_SECRET not configured for ${name} wallet signing`,
@@ -1877,7 +1886,6 @@ export class UsersService {
       }
 
       const result = await this.retryRequest(url, headers, body);
-      console.log(`✅ ${name} wallet creation initiated successfully (200 OK)`);
       return { name, success: true, data: result };
     } catch (error: any) {
       console.error(`❌ ${name} wallet creation failed:`, error.message);
@@ -1889,7 +1897,6 @@ export class UsersService {
     email: string,
     userId: string,
   ): Promise<Array<{ name: string; success: boolean; error?: string }>> {
-    console.log('Starting wallet creation process...');
     const walletPromises: Promise<{
       name: string;
       success: boolean;
@@ -1941,35 +1948,10 @@ export class UsersService {
       );
     }
 
-    if (process.env.MONERO_WALLET_API_URL) {
-      walletPromises.push(
-        this.createSingleWallet(
-          'Monero',
-          `${process.env.MONERO_WALLET_API_URL}`,
-          {
-            'Content-Type': 'application/json',
-            'X-API-TOKEN': process.env.XMR_API_TOKEN,
-          },
-          { email, userId },
-        ),
-      );
-    } else {
-      console.error('❌ Monero wallet configuration missing');
-      walletPromises.push(
-        Promise.resolve({
-          name: 'Monero',
-          success: false,
-          error: 'Configuration missing',
-        }),
-      );
-    }
-
     try {
       const results = await Promise.all(walletPromises);
-      console.log('Wallet creation process initiated successfully.');
       return results;
     } catch (error) {
-      console.log(error);
       console.error('Error in wallet creation process:', error);
       throw error;
     }

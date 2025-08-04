@@ -15,8 +15,6 @@ async function runMigration() {
     );
 
     if (!tableExists[0].exists) {
-      console.log('Creating security_questions table...');
-
       await dataSource.query(`
         CREATE TABLE security_questions (
           user_id VARCHAR NOT NULL,
@@ -35,10 +33,8 @@ async function runMigration() {
             PRIMARY KEY (user_id)
         )
       `);
-
-      console.log('Security questions table created successfully!');
     } else {
-      console.log('Security questions table already exists');
+      ('Security questions table already exists');
     }
   } catch (error) {
     console.error('Migration failed:', error);

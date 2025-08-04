@@ -14,8 +14,6 @@ async function resetDatabase() {
     process.exit(1);
   }
 
-  console.log('🔄 Connecting to database...');
-
   const client = createConnection({
     connectionString,
     ssl: process.env.SSL === 'true' ? { rejectUnauthorized: false } : false,
@@ -23,14 +21,12 @@ async function resetDatabase() {
 
   try {
     await client.connect();
-    console.log('✅ Connected to database successfully');
 
     // Read and execute the reset script
     const resetScript = fs.readFileSync(
       path.join(__dirname, 'reset-tables.sql'),
       'utf8',
     );
-    console.log('🔄 Executing reset script...');
 
     await client.query(resetScript);
     console.log('✅ Database tables reset successfully!');

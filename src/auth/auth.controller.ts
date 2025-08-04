@@ -59,10 +59,7 @@ import {
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { JwtAdminGuard } from './guards/jwt-admin.guard';
 import { ApiKeyGuard } from './guards/api-key.guard';
-import { JwtOrApiKeyGuard } from './guards/jwt-or-api-key.guard';
-import { AdminOrApiKeyGuard } from './guards/admin-or-api-key.guard';
-import { JwtAndApiKeyGuard } from './guards/jwt-and-api-key.guard';
-import { AdminJwtAndApiKeyGuard } from './guards/admin-jwt-and-api-key.guard';
+
 import { WalletValidationService } from './services/wallet-validation.service';
 
 @ApiTags('Authentication')
