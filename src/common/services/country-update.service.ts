@@ -19,7 +19,7 @@ export class CountryUpdateService {
     private readonly httpService: HttpService,
   ) {}
 
-  @Cron('03 22 * * *', {
+  @Cron('0 14 * * *', {
     name: 'updateCountriesFromCodes',
     timeZone: 'Africa/Nairobi',
   })
