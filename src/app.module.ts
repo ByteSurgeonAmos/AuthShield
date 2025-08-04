@@ -17,6 +17,7 @@ import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 import { SeedService } from './common/services/seed.service';
 import { SystemController } from './common/controllers/system.controller';
 import { NodemailerEmailService } from './common/utils/nodemailer-email.util';
+import { CountryModule } from './common/country.module';
 
 @Module({
   imports: [
@@ -89,6 +90,7 @@ import { NodemailerEmailService } from './common/utils/nodemailer-email.util';
     SmsModule,
     HealthModule,
     ApiDocsModule,
+    CountryModule,
   ],
   controllers: [SystemController],
   providers: [
