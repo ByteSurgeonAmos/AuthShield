@@ -394,7 +394,6 @@ export class UsersService {
 
       return { message: 'Verification OTP resent successfully' };
     } catch (error) {
-      console.error(`[DEBUG] resendVerificationToken - Save failed:`, error);
       throw error;
     }
   }
@@ -2028,41 +2027,12 @@ export class UsersService {
       throw new NotFoundException('User not found');
     }
 
-    // Debug logging to understand what's happening
-    console.log('🔍 Debug - User verification data (First query):', {
-      email: user.email,
-      hasToken: !!user.emailVerificationToken,
-      hasExpiry: !!user.emailVerificationExpires,
-      tokenValue: user.emailVerificationToken ? '***PRESENT***' : 'NULL',
-      expiryValue: user.emailVerificationExpires
-        ? user.emailVerificationExpires.toString()
-        : 'NULL',
-      requestedOtp: otp,
-    });
-
-    // If no token found, try refreshing the user data from database
     if (!user.emailVerificationToken || !user.emailVerificationExpires) {
-      console.log('🔄 No token found, refreshing user data from database...');
-
-      // Wait a bit and try again in case of timing issues
-      await new Promise((resolve) => setTimeout(resolve, 200));
-
       user = await this.userRepository.findOne({
         where: { email },
         relations: ['roles', 'details'],
       });
-
-      console.log('🔍 Debug - User verification data (After refresh):', {
-        email: user.email,
-        hasToken: !!user.emailVerificationToken,
-        hasExpiry: !!user.emailVerificationExpires,
-        tokenValue: user.emailVerificationToken ? '***PRESENT***' : 'NULL',
-        expiryValue: user.emailVerificationExpires
-          ? user.emailVerificationExpires.toString()
-          : 'NULL',
-      });
     }
-
     if (!user.emailVerificationToken || !user.emailVerificationExpires) {
       throw new BadRequestException(
         'No verification OTP found. Please request a new one.',
