@@ -61,6 +61,7 @@ import { JwtAdminGuard } from './guards/jwt-admin.guard';
 import { ApiKeyGuard } from './guards/api-key.guard';
 
 import { WalletValidationService } from './services/wallet-validation.service';
+import { AdminJwtAndApiKeyGuard } from './guards/admin-jwt-and-api-key.guard';
 
 @ApiTags('Authentication')
 @Controller('users')
@@ -491,7 +492,7 @@ export class UsersController {
   // =============== USER MANAGEMENT ENDPOINTS ===============
 
   @Get()
-  @UseGuards(ApiKeyGuard)
+  // @UseGuards(AdminJwtAndApiKeyGuard)
   @ApiBearerAuth('access-token')
   @ApiTags('User Management')
   @ApiOperation({
