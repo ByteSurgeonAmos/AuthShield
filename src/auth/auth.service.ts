@@ -231,6 +231,20 @@ export class UsersService {
 
     const savedUser = await this.userRepository.save(user);
 
+    savedUser.is2FaEnabled = true;
+    savedUser.twoFactorMethod = TwoFactorMethod.EMAIL;
+    await this.userRepository.save(savedUser);
+
+    await this.securityAuditService.recordSecurityEvent({
+      eventType: 'AUTO_2FA_ENABLED',
+      userId: savedUser.userId,
+      email: savedUser.email,
+      additionalData: {
+        method: TwoFactorMethod.EMAIL,
+        reason: 'Default 2FA setup for new user',
+      },
+    });
+
     const userRole = this.roleRepository.create({
       userId: savedUser.userId,
       roles: UserRoleType.USER,
@@ -369,16 +383,19 @@ export class UsersService {
     user.emailVerificationToken = newVerificationOTP;
     user.emailVerificationExpires = otpExpiry;
 
-    await this.userRepository.save(user);
-    await this.sendVerificationEmail(user.email, user.emailVerificationToken);
+    try {
+      await this.sendVerificationEmail(user.email, user.emailVerificationToken);
+      await this.userRepository.save(user);
+      await this.securityAuditService.recordSecurityEvent({
+        eventType: 'EMAIL_VERIFICATION_OTP_RESENT',
+        userId: user.userId,
+        email: user.email,
+      });
 
-    await this.securityAuditService.recordSecurityEvent({
-      eventType: 'EMAIL_VERIFICATION_OTP_RESENT',
-      userId: user.userId,
-      email: user.email,
-    });
-
-    return { message: 'Verification OTP resent successfully' };
+      return { message: 'Verification OTP resent successfully' };
+    } catch (error) {
+      throw error;
+    }
   }
 
   async verifyEmail(token: string): Promise<{ message: string }> {
@@ -744,7 +761,14 @@ export class UsersService {
   }
 
   async verify2FACode(userId: string, token: string): Promise<boolean> {
-    const user = await this.findOne(userId);
+    const user = await this.userRepository.findOne({
+      where: { userId },
+      relations: ['roles', 'details'],
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
 
     if (!user.is2FaEnabled) {
       throw new BadRequestException('2FA is not enabled for this user');
@@ -1022,24 +1046,14 @@ export class UsersService {
       throw new UnauthorizedException('Invalid credentials');
     }
     if (!user.emailVerified) {
-      if (
-        !user.emailVerificationToken ||
-        new Date() > user.emailVerificationExpires
-      ) {
-        // Generate new 6-digit OTP
-        const newVerificationOTP = generateOtp(6, {
-          digitsOnly: true,
-          includeSpecialChars: false,
-        });
-        const otpExpiry = new Date();
-        otpExpiry.setMinutes(otpExpiry.getMinutes() + 15);
-
-        user.emailVerificationToken = newVerificationOTP;
-        user.emailVerificationExpires = otpExpiry;
-        await this.userRepository.save(user);
+      try {
+        await this.resendVerificationToken(user.email);
+      } catch (error) {
+        console.error(
+          'Failed to resend verification token during login:',
+          error,
+        );
       }
-
-      await this.sendVerificationEmail(user.email, user.emailVerificationToken);
 
       await this.securityAuditService.recordSecurityEvent({
         eventType: 'VERIFICATION_EMAIL_SENT',
@@ -1064,7 +1078,8 @@ export class UsersService {
         user.twoFactorMethod === TwoFactorMethod.EMAIL ||
         (user.twoFactorMethod === TwoFactorMethod.PHONE && user.phoneNumber)
       ) {
-        await this.send2FACode(user.userId);
+        // await this.send2FACode(user.userId);
+        await this.resendVerificationToken(user.email);
       }
 
       const temporaryPayload = {
@@ -1079,7 +1094,7 @@ export class UsersService {
       return {
         requiresTwoFactor: true,
         temporaryToken,
-        message: `2FA required. Code sent to your ${user.twoFactorMethod}.`,
+        message: `2FA required. Kindly check your ${user.twoFactorMethod}.`,
       };
     }
 
@@ -2002,14 +2017,22 @@ export class UsersService {
     accessToken?: string;
     user?: any;
   }> {
-    const user = await this.userRepository.findOne({
+    // First attempt to get user
+    let user = await this.userRepository.findOne({
       where: { email },
+      relations: ['roles', 'details'],
     });
 
     if (!user) {
       throw new NotFoundException('User not found');
     }
 
+    if (!user.emailVerificationToken || !user.emailVerificationExpires) {
+      user = await this.userRepository.findOne({
+        where: { email },
+        relations: ['roles', 'details'],
+      });
+    }
     if (!user.emailVerificationToken || !user.emailVerificationExpires) {
       throw new BadRequestException(
         'No verification OTP found. Please request a new one.',
