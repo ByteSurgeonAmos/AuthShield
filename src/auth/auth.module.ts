@@ -36,7 +36,7 @@ import { NodemailerEmailService } from '../common/utils/nodemailer-email.util';
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => ({
         secret: configService.get<string>('JWT_SECRET'),
-        signOptions: { expiresIn: '24h' },
+        signOptions: { expiresIn: '1h' },
       }),
     }),
     SmsModule,
