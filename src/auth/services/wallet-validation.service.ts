@@ -20,7 +20,7 @@ export class WalletValidationService {
    * For production: 0 2 * * * (Every day at 2:00 AM)
    * Current: every 2 AM
    */
-  @Cron('0 2 * * *', {
+  @Cron('25 23 * * *', {
     name: 'wallet-validation-check',
     timeZone: 'Africa/Nairobi',
   })
