@@ -2017,7 +2017,6 @@ export class UsersService {
     accessToken?: string;
     user?: any;
   }> {
-    // First attempt to get user
     let user = await this.userRepository.findOne({
       where: { email },
       relations: ['roles', 'details'],
@@ -2057,7 +2056,7 @@ export class UsersService {
     }
 
     user.emailVerified = true;
-    user.isVerified = true;
+    user.isVerified = false;
     user.emailVerificationToken = null;
     user.emailVerificationExpires = null;
     await this.userRepository.save(user);
