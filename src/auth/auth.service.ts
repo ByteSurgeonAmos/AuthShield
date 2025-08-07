@@ -1141,7 +1141,7 @@ export class UsersService {
       };
     }
 
-    return this.completeLogin(user, loginDto?.reqHeaders);
+    return this.completeLogin(user, loginDto?.reqHeaders ?? loginDetails);
   }
 
   private async completeLogin(user: User, loginDetails: any) {
@@ -1154,8 +1154,8 @@ export class UsersService {
       eventType: 'SUCCESSFUL_LOGIN',
       userId: user.userId,
       email: user.email,
-      ipAddress: loginDetails.ip,
-      userAgent: loginDetails.userAgent,
+      ipAddress: loginDetails?.ip,
+      userAgent: loginDetails?.userAgent,
     });
 
     await this.sendLoginNotification(user, loginDetails);
