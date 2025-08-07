@@ -182,6 +182,7 @@ export class UsersController {
       ip: req.ip || req.connection.remoteAddress,
       userAgent: req.get('User-Agent'),
     };
+
     return this.usersService.verify2FAAndCompleteLogin(
       verifyDto.temporaryToken,
       verifyDto.twoFactorCode,

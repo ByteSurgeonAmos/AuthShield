@@ -20,11 +20,4 @@ export class LoginUserDto {
   @IsNotEmpty()
   @Length(6, 20)
   password: string;
-
-  @ApiProperty({
-    description: 'Optional request headers for additional context',
-    example: { 'X-Request-ID': '12345' },
-    required: false,
-  })
-  reqHeaders?: any;
 }

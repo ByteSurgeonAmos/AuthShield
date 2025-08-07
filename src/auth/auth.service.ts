@@ -825,24 +825,24 @@ export class UsersService {
         window: 2,
       });
     } else {
-      if (!user.otpCode || !user.otpExpiry) {
+      if (!user.emailVerificationToken || !user.emailVerificationExpires) {
         throw new BadRequestException(
           'No 2FA code found. Please request a new one.',
         );
       }
 
       const currentTime = new Date();
-      const expiryTime = new Date(user.otpExpiry);
+      const expiryTime = new Date(user.emailVerificationExpires);
 
       if (currentTime > expiryTime) {
         throw new BadRequestException('2FA code has expired');
       }
 
-      const isValid = user.otpCode === token;
+      const isValid = user.emailVerificationToken === token;
 
       if (isValid) {
-        user.otpCode = null;
-        user.otpExpiry = null;
+        user.emailVerificationToken = null;
+        user.emailVerificationExpires = null;
         await this.userRepository.save(user);
       }
 
@@ -1117,14 +1117,9 @@ export class UsersService {
     }
 
     if (user.is2FaEnabled) {
-      if (
-        user.twoFactorMethod === TwoFactorMethod.EMAIL ||
-        (user.twoFactorMethod === TwoFactorMethod.PHONE && user.phoneNumber)
-      ) {
-
+      if (user.twoFactorMethod === TwoFactorMethod.EMAIL) {
         // await this.send2FACode(user.userId);
         await this.sendLogin2FAToken(user.email);
-
       }
 
       const temporaryPayload = {
@@ -1143,7 +1138,7 @@ export class UsersService {
       };
     }
 
-    return this.completeLogin(user, loginDto?.reqHeaders ?? loginDetails);
+    return this.completeLogin(user, loginDetails);
   }
 
   private async completeLogin(user: User, loginDetails: any) {
