@@ -1078,8 +1078,8 @@ export class UsersService {
         user.twoFactorMethod === TwoFactorMethod.EMAIL ||
         (user.twoFactorMethod === TwoFactorMethod.PHONE && user.phoneNumber)
       ) {
-        // await this.send2FACode(user.userId);
-        await this.resendVerificationToken(user.email);
+        await this.send2FACode(user.userId);
+        // await this.resendVerificationToken(user.email);
       }
 
       const temporaryPayload = {
