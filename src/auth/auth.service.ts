@@ -194,6 +194,14 @@ export class UsersService {
       throw new Error(`Failed to send verification email: ${error.message}`);
     }
   }
+  async sendLogin2FAEmails(email: string, otp: string) {
+    try {
+      await this.nodemailerEmailService.send2FACode(email, otp);
+    } catch (error) {
+      console.error('❌ Failed to send 2FA email:', error.message);
+      throw new Error(`Failed to send 2FA email: ${error.message}`);
+    }
+  }
 
   async create(createUserDto: SimpleRegisterDto) {
     const existingUser = await this.userRepository.findOne({
@@ -385,6 +393,41 @@ export class UsersService {
 
     try {
       await this.sendVerificationEmail(user.email, user.emailVerificationToken);
+      await this.userRepository.save(user);
+      await this.securityAuditService.recordSecurityEvent({
+        eventType: 'EMAIL_VERIFICATION_OTP_RESENT',
+        userId: user.userId,
+        email: user.email,
+      });
+
+      return { message: 'Verification OTP resent successfully' };
+    } catch (error) {
+      throw error;
+    }
+  }
+  async sendLogin2FAToken(email: string): Promise<{ message: string }> {
+    const user = await this.findByEmail(email);
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    // if (user.emailVerified) {
+    //   throw new BadRequestException('Email is already verified');
+    // }
+
+    const newVerificationOTP = generateOtp(6, {
+      digitsOnly: true,
+      includeSpecialChars: false,
+    });
+    const otpExpiry = new Date();
+    otpExpiry.setMinutes(otpExpiry.getMinutes() + 15);
+
+    user.emailVerificationToken = newVerificationOTP;
+    user.emailVerificationExpires = otpExpiry;
+
+    try {
+      await this.send2FAEmail(user.email, user.emailVerificationToken);
       await this.userRepository.save(user);
       await this.securityAuditService.recordSecurityEvent({
         eventType: 'EMAIL_VERIFICATION_OTP_RESENT',
@@ -1079,7 +1122,7 @@ export class UsersService {
         (user.twoFactorMethod === TwoFactorMethod.PHONE && user.phoneNumber)
       ) {
         // await this.send2FACode(user.userId);
-        await this.resendVerificationToken(user.email);
+        await this.sendLogin2FAToken(user.email);
       }
 
       const temporaryPayload = {
@@ -1098,7 +1141,7 @@ export class UsersService {
       };
     }
 
-    return this.completeLogin(user, loginDetails);
+    return this.completeLogin(user, loginDto?.reqHeaders);
   }
 
   private async completeLogin(user: User, loginDetails: any) {
