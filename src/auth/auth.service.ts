@@ -1121,8 +1121,10 @@ export class UsersService {
         user.twoFactorMethod === TwoFactorMethod.EMAIL ||
         (user.twoFactorMethod === TwoFactorMethod.PHONE && user.phoneNumber)
       ) {
+
         // await this.send2FACode(user.userId);
         await this.sendLogin2FAToken(user.email);
+
       }
 
       const temporaryPayload = {
