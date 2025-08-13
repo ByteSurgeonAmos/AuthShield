@@ -71,6 +71,27 @@
   - `GET /users/security-question` - Get current question
   - `DELETE /users/security-question` - Delete security question
 
+### 8. SMS Service Migration (Tiara → Infobip)
+
+- **Location**: `src/sms/sms.service.ts`
+- **Features**:
+  - Migrated from Tiara Connect to Infobip SMS API
+  - Enhanced African country code support (54 African countries)
+  - International phone number validation
+  - Improved error handling for SMS delivery
+  - Support for all African regions for better coverage
+
+### 9. Enhanced Phone Number Utils
+
+- **Location**: `src/common/phone-utils.ts`
+- **Features**:
+  - Comprehensive African country codes mapping (213-Algeria to 263-Zimbabwe)
+  - International country codes support (90+ countries)
+  - Enhanced phone number validation for African numbers
+  - Country detection from phone numbers
+  - African phone number identification utility
+  - Improved formatting for international standards
+
 ## Module Updates ✅
 
 ### Auth Module Configuration
@@ -151,6 +172,8 @@ All security question endpoints require JWT authentication and return standardiz
 4. **Username Changes**: Verify one-time username change limitation
 5. **Third-Party Auth**: Test social login flow with random username generation
 6. **Security Audit**: Verify all operations are properly logged
+7. **SMS Functionality**: Test SMS sending for 2FA, registration, and password reset
+8. **Phone Number Validation**: Verify phone number validation and formatting
 
 ## Error Handling ✅
 
@@ -159,6 +182,7 @@ All security question endpoints require JWT authentication and return standardiz
 - Descriptive error messages
 - Validation error responses
 - Database constraint error handling
+- SMS delivery error handling
 
 ## Performance Considerations ✅
 
@@ -166,6 +190,7 @@ All security question endpoints require JWT authentication and return standardiz
 - Profile image generation uses external service (RoboHash)
 - Security question answers properly hashed for security
 - Database indexes recommended for frequently queried fields
+- SMS sending performance optimized with Infobip API
 
 ---
 

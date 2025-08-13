@@ -6,21 +6,21 @@ import { formatPhoneNumber } from '../common/phone-utils';
 
 @Injectable()
 export class SmsService {
-  private readonly tiaraApiUrl =
-    'https://api2.tiaraconnect.io/api/messaging/sendsms';
+  private readonly infobipApiUrl =
+    'https://api.infobip.com/sms/2/text/advanced';
   private readonly apiToken: string;
   private readonly mockSmsService: MockSmsService;
 
   constructor(private config: ConfigService) {
-    this.apiToken = this.config.get<string>('TIARA_API_TOKEN');
+    this.apiToken = this.config.get<string>('INFOBIP_API_TOKEN');
     this.mockSmsService = new MockSmsService(config);
 
     if (!this.apiToken) {
       console.warn(
-        '⚠️  Tiara API token not configured. Using mock SMS service for development.',
+        '⚠️  Infobip API token not configured. Using mock SMS service for development.',
       );
       console.warn(
-        'Set TIARA_API_TOKEN environment variable to enable real SMS functionality.',
+        'Set INFOBIP_API_TOKEN environment variable to enable real SMS functionality.',
       );
     }
   }
@@ -54,19 +54,29 @@ export class SmsService {
       );
     }
 
-    const senderID = this.config.get<string>('SMS_SENDER_ID') || 'xmobit';
+    const senderID = this.config.get<string>('SMS_SENDER_ID') || 'XMOBIT';
 
+    // Infobip API payload format
     const requestPayload = {
-      to: phoneResult.formatted,
-      message: message,
-      from: senderID,
+      messages: [
+        {
+          destinations: [
+            {
+              to: phoneResult.formatted,
+            },
+          ],
+          from: senderID,
+          text: message,
+        },
+      ],
     };
 
     try {
-      const response = await axios.post(this.tiaraApiUrl, requestPayload, {
+      const response = await axios.post(this.infobipApiUrl, requestPayload, {
         headers: {
-          Authorization: `Bearer ${this.apiToken}`,
+          Authorization: `App ${this.apiToken}`,
           'Content-Type': 'application/json',
+          Accept: 'application/json',
         },
         timeout: 15000,
       });
@@ -88,7 +98,7 @@ export class SmsService {
         switch (status) {
           case 401:
             errorMessage =
-              'SMS service authentication failed. Please check TIARA_API_TOKEN.';
+              'SMS service authentication failed. Please check INFOBIP_API_TOKEN.';
             errorDetails = 'The API token is invalid or has expired.';
             break;
           case 403:
@@ -96,21 +106,23 @@ export class SmsService {
               'SMS service access forbidden. Check API permissions and endpoint.';
             errorDetails = `Access denied. This could be due to:
 1. Invalid API token or expired token
-2. API endpoint changed (currently using: ${this.tiaraApiUrl})
+2. API endpoint changed (currently using: ${this.infobipApiUrl})
 3. Account doesn't have SMS sending permissions
 4. Wrong request format for the API
 5. IP address not whitelisted (if applicable)
 
 Please verify:
-- Your TIARA_API_TOKEN is correct and active
+- Your INFOBIP_API_TOKEN is correct and active
 - The API endpoint URL is correct
-- Your Tiara account has SMS permissions
-- Contact Tiara support if the issue persists`;
+- Your Infobip account has SMS permissions
+- Contact Infobip support if the issue persists`;
             break;
           case 400:
             errorMessage = 'Invalid SMS request format or parameters.';
-            if (data?.message) {
-              errorDetails = data.message;
+            if (data?.requestError?.serviceException?.text) {
+              errorDetails = data.requestError.serviceException.text;
+            } else if (data?.requestError?.serviceException?.messageId) {
+              errorDetails = `Request error: ${data.requestError.serviceException.messageId}`;
             } else {
               errorDetails = `Bad request. The API might expect a different request format. 
 Current payload: ${JSON.stringify(requestPayload, null, 2)}`;
