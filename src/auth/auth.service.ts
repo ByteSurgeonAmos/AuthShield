@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Injectable,
+  InternalServerErrorException,
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -1043,102 +1044,107 @@ export class UsersService {
     email?: string;
     statusCode?: number;
   }> {
-    const user = await this.findByEmail(loginDto.email);
+    try {
+      const user = await this.findByEmail(loginDto.email);
 
-    if (!user) {
-      throw new NotFoundException('Invalid email or password');
-    }
-
-    if (!user.isAccountActive) {
-      throw new UnauthorizedException(
-        'Your account is not active. Kindly contact support.',
-      );
-    }
-
-    if (user.accountLockedUntil && new Date() < user.accountLockedUntil) {
-      const remainingTime = Math.ceil(
-        (user.accountLockedUntil.getTime() - new Date().getTime()) / 60000,
-      );
-      throw new UnauthorizedException(
-        `Account is locked. Please try again in ${remainingTime} minutes.`,
-      );
-    }
-
-    const isPasswordValid = await bcrypt.compare(
-      loginDto.password,
-      user.password,
-    );
-    if (!isPasswordValid) {
-      user.failedLoginAttempts = (user.failedLoginAttempts || 0) + 1;
-
-      if (user.failedLoginAttempts >= 5) {
-        user.accountLockedUntil = new Date(Date.now() + 10 * 60 * 1000);
+      if (!user) {
+        throw new NotFoundException('Invalid email or password');
       }
 
-      await this.userRepository.save(user);
-
-      await this.securityAuditService.recordSecurityEvent({
-        eventType: 'FAILED_LOGIN',
-        reason: 'Invalid password',
-        userId: user.userId,
-        email: user.email,
-        ipAddress: loginDetails.ip,
-        userAgent: loginDetails.userAgent,
-      });
-
-      throw new UnauthorizedException('Invalid credentials');
-    }
-    if (!user.emailVerified) {
-      try {
-        await this.resendVerificationToken(user.email);
-      } catch (error) {
-        console.error(
-          'Failed to resend verification token during login:',
-          error,
+      if (!user.isAccountActive) {
+        throw new UnauthorizedException(
+          'Your account is not active. Kindly contact support.',
         );
       }
 
-      await this.securityAuditService.recordSecurityEvent({
-        eventType: 'VERIFICATION_EMAIL_SENT',
-        reason: 'Login attempt with unverified email',
-        userId: user.userId,
-        email: user.email,
-        ipAddress: loginDetails.ip,
-        userAgent: loginDetails.userAgent,
-      });
-
-      return {
-        message:
-          'Email is not verified. A verification code has been sent to your email address.',
-        requiresVerification: true,
-        email: user.email,
-        statusCode: 401,
-      };
-    }
-
-    if (user.is2FaEnabled) {
-      if (user.twoFactorMethod === TwoFactorMethod.EMAIL) {
-        // await this.send2FACode(user.userId);
-        await this.sendLogin2FAToken(user.email);
+      if (user.accountLockedUntil && new Date() < user.accountLockedUntil) {
+        const remainingTime = Math.ceil(
+          (user.accountLockedUntil.getTime() - new Date().getTime()) / 60000,
+        );
+        throw new UnauthorizedException(
+          `Account is locked. Please try again in ${remainingTime} minutes.`,
+        );
       }
 
-      const temporaryPayload = {
-        userId: user.userId,
-        email: user.email,
-        purpose: '2FA_VERIFICATION',
-        // exp: Math.floor(Date.now() / 1000) + 10 * 60,
-      };
+      const isPasswordValid = await bcrypt.compare(
+        loginDto.password,
+        user.password,
+      );
+      if (!isPasswordValid) {
+        user.failedLoginAttempts = (user.failedLoginAttempts || 0) + 1;
 
-      const temporaryToken = this.jwtService.sign(temporaryPayload);
+        if (user.failedLoginAttempts >= 5) {
+          user.accountLockedUntil = new Date(Date.now() + 10 * 60 * 1000);
+        }
 
-      return {
-        requiresTwoFactor: true,
-        temporaryToken,
-        message: `2FA required. Kindly check your ${user.twoFactorMethod}.`,
-      };
+        await this.userRepository.save(user);
+
+        await this.securityAuditService.recordSecurityEvent({
+          eventType: 'FAILED_LOGIN',
+          reason: 'Invalid password',
+          userId: user.userId,
+          email: user.email,
+          ipAddress: loginDetails.ip,
+          userAgent: loginDetails.userAgent,
+        });
+
+        throw new UnauthorizedException('Invalid credentials');
+      }
+      if (!user.emailVerified) {
+        try {
+          await this.resendVerificationToken(user.email);
+        } catch (error) {
+          console.error(
+            'Failed to resend verification token during login:',
+            error,
+          );
+        }
+
+        await this.securityAuditService.recordSecurityEvent({
+          eventType: 'VERIFICATION_EMAIL_SENT',
+          reason: 'Login attempt with unverified email',
+          userId: user.userId,
+          email: user.email,
+          ipAddress: loginDetails.ip,
+          userAgent: loginDetails.userAgent,
+        });
+
+        return {
+          message:
+            'Email is not verified. A verification code has been sent to your email address.',
+          requiresVerification: true,
+          email: user.email,
+          statusCode: 401,
+        };
+      }
+
+      if (user.is2FaEnabled) {
+        if (user.twoFactorMethod === TwoFactorMethod.EMAIL) {
+          // await this.send2FACode(user.userId);
+          await this.sendLogin2FAToken(user.email);
+        }
+
+        const temporaryPayload = {
+          userId: user.userId,
+          email: user.email,
+          purpose: '2FA_VERIFICATION',
+          // exp: Math.floor(Date.now() / 1000) + 10 * 60,
+        };
+
+        const temporaryToken = this.jwtService.sign(temporaryPayload);
+
+        return {
+          requiresTwoFactor: true,
+          temporaryToken,
+          message: `2FA required. Kindly check your ${user.twoFactorMethod}.`,
+        };
+      }
+
+      return this.completeLogin(user, loginDetails);
+    } catch (error) {
+      console.error('Error during enhanced login:', error);
+      throw new InternalServerErrorException(error.message);
     }
-
-    return this.completeLogin(user, loginDetails);
   }
 
   private async completeLogin(user: User, loginDetails: any) {
